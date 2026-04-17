@@ -25,10 +25,13 @@ jobs:
             cd /home/rup/OutdoorTherapyApp/OutdoorTherapyApp || exit
 
             # Code update kora
-            git pull origin dev
+            # git pull origin dev
+            git fetch --all
+            git reset --hard origin/dev
 
             # Docker container refresh kora
-            docker compose down
+            docker compose down --remove-orphans
+            sleep 2
             docker compose up -d --build
 
             # Prisma database sync kora (Safe option)
