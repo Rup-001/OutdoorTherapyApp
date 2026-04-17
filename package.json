@@ -1,0 +1,50 @@
+{
+  "name": "node-prisma-modular-template",
+  "version": "1.0.0",
+  "description": "Production ready Node.js Express Prisma PostgreSQL template with Modular Pattern",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "seed": "node src/utils/seeder.js",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1029.0",
+    "@prisma/client": "^5.10.0",
+    "apple-signin-auth": "^2.0.0",
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.19.0",
+    "express-mongo-sanitize": "^2.2.0",
+    "express-rate-limit": "^7.2.0",
+    "google-auth-library": "^10.6.2",
+    "heic-convert": "^2.1.0",
+    "helmet": "^7.1.0",
+    "http-status": "^1.8.1",
+    "joi": "^18.1.2",
+    "jsonwebtoken": "^9.0.2",
+    "moment": "^2.30.1",
+    "morgan": "^1.10.1",
+    "multer": "^1.4.5-lts.1",
+    "multer-s3": "^3.0.1",
+    "nodemailer": "^6.9.12",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "redis": "^5.11.0",
+    "socket.io": "^4.7.5",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "winston": "^3.19.0",
+    "xss-clean": "^0.1.4",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0",
+    "prisma": "^5.10.0"
+  }
+}

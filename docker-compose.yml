@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # Redis Service
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - outdoor_network
+
+  # Backend API Service
+  api:
+    build: .
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    environment:
+      - REDIS_HOST=redis  # Docker-er bhitor service name diye connect korte hoy
+      - REDIS_PORT=6379
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - redis
+    networks:
+      - outdoor_network
+
+networks:
+  outdoor_network:
+    driver: bridge

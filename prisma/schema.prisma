@@ -1,0 +1,253 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPERADMIN
+}
+
+enum UserType {
+  FREE
+  PREMIUM
+  ADMIN
+}
+
+enum TokenType {
+  ACCESS
+  REFRESH
+  RESET_PASSWORD
+  VERIFY_EMAIL
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+}
+
+enum DownloadStatus {
+  PENDING
+  DOWNLOADING
+  COMPLETED
+  FAILED
+}
+
+model User {
+  id                 String    @id @default(uuid())
+  firstName          String?
+  lastName           String?
+  fullName           String?
+  email              String    @unique
+  profileImage       String?
+  password           String
+  role               Role      @default(USER)
+  userType           UserType  @default(FREE)
+  isBanned           Boolean   @default(false)
+  googleId           String?   @unique
+  appleId            String?   @unique
+  callingCode        String?
+  phoneNumber        String?   @unique
+  nidNumber          String?   @unique
+  isNIDVerified      Boolean   @default(false)
+  dataOfBirth        DateTime?
+  address            String?
+  oneTimeCode        String?
+  isEmailVerified    Boolean   @default(false)
+  isResetPassword    Boolean   @default(false)
+  isProfileCompleted Boolean   @default(false)
+  fcmToken           String?
+  isDeleted          Boolean   @default(false)
+  securitySettings   Json?     @default("{\"recoveryEmail\": null, \"recoveryPhone\": null, \"securityQuestion\": null}")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  
+  tokens             Token[]
+  notifications      Notification[]
+  subscriptions      Subscription[]
+  favourites         Favourite[]
+  downloads          Download[]
+  playHistory        PlayHistory[]
+
+  @@map("users")
+}
+
+model Token {
+  id          String    @id @default(uuid())
+  token       String    @unique
+  type        TokenType
+  expires     DateTime
+  blacklisted Boolean   @default(false)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("tokens")
+}
+
+model Category {
+  id              String   @id @default(uuid())
+  name            String
+  iconUrl         String?
+  coverImageUrl   String?
+  totalTracks     Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  tracks          Track[]
+
+  @@map("categories")
+}
+
+model Track {
+  id              String   @id @default(uuid())
+  categoryId      String
+  category        Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  title           String
+  description     String?
+  tagline         String?
+  audioUrl        String   // R2 object key
+  coverImageUrl   String   // R2 object key
+  durationSeconds Int?
+  playCount       Int      @default(0)
+  downloadCount   Int      @default(0)
+  isFeatured      Boolean  @default(false)
+  isSleepTonight  Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  favourites      Favourite[]
+  downloads       Download[]
+  playHistory     PlayHistory[]
+
+  @@map("tracks")
+}
+
+model Subscription {
+  id                   String             @id @default(uuid())
+  userId               String
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  planType             String?
+  status               SubscriptionStatus @default(ACTIVE)
+  startDate            DateTime?
+  endDate              DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@map("subscriptions")
+}
+
+model Favourite {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackId   String
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, trackId])
+  @@map("favourites")
+}
+
+model Download {
+  id              String         @id @default(uuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackId         String
+  track           Track          @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  status          DownloadStatus @default(PENDING)
+  progressPercent Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@map("downloads")
+}
+
+model PlayHistory {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackId       String
+  track         Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  playedSeconds Int      @default(0)
+  playedAt      DateTime @default(now())
+
+  @@map("play_history")
+}
+
+model AppSettings {
+  id               String   @id @default(uuid())
+  appName          String   @default("Dreamscape")
+  supportEmail     String?
+  maxDownloadsFree Int      @default(5)
+  stripeEnabled    Boolean  @default(true)
+  stripePublicKey  String?
+  stripeSecretKey  String?
+  paypalEnabled    Boolean  @default(false)
+  updatedAt        DateTime @updatedAt
+
+  @@map("app_settings")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  title     String
+  message   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("notifications")
+}
+
+
+model AboutUs {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("about_us")
+}
+
+model PrivacyPolicy {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("privacy_policies")
+}
+
+model TermsConditions {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("terms_conditions")
+}
+
+model Support {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  message   String
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("supports")
+}
