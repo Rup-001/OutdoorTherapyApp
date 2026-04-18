@@ -8,14 +8,15 @@ const createTrack = catchAsync(async (req, res) => {
     ...req.body,
   };
 
+  // Handle multiple file uploads (audio and cover image)
   if (req.files) {
     if (req.files.audio) {
       const audioFile = req.files.audio[0];
       trackBody.audioUrl = audioFile.key || audioFile.path || audioFile.location;
     }
     if (req.files.coverImage) {
-      const coverImageFile = req.files.coverImage[0];
-      trackBody.coverImageUrl = coverImageFile.key || coverImageFile.path || coverImageFile.location;
+      const coverFile = req.files.coverImage[0];
+      trackBody.coverImageUrl = coverFile.key || coverFile.path || coverFile.location;
     }
   }
 
@@ -28,7 +29,7 @@ const createTrack = catchAsync(async (req, res) => {
 });
 
 const getTracks = catchAsync(async (req, res) => {
-  const filter = pick(req.query, ['categoryId', 'title', 'isFeatured', 'isSleepTonight']);
+  const filter = pick(req.query, ['title', 'categoryId', 'isFeatured', 'isSleepTonight']);
   const options = pick(req.query, ['sortBy', 'limit', 'page']);
   const result = await trackService.queryTracks(filter, options);
   res.send({
@@ -49,15 +50,16 @@ const getTrack = catchAsync(async (req, res) => {
 
 const updateTrack = catchAsync(async (req, res) => {
   const updateBody = { ...req.body };
-  
+
+  // Handle file updates
   if (req.files) {
     if (req.files.audio) {
       const audioFile = req.files.audio[0];
       updateBody.audioUrl = audioFile.key || audioFile.path || audioFile.location;
     }
     if (req.files.coverImage) {
-      const coverImageFile = req.files.coverImage[0];
-      updateBody.coverImageUrl = coverImageFile.key || coverImageFile.path || coverImageFile.location;
+      const coverFile = req.files.coverImage[0];
+      updateBody.coverImageUrl = coverFile.key || coverFile.path || coverFile.location;
     }
   }
 

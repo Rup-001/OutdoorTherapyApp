@@ -5,14 +5,16 @@ const trackValidation = require('./track.validation');
 const trackController = require('./track.controller');
 const upload = require('../../middlewares/fileUpload');
 
-const router = express.Router();
+const adminRouter = express.Router();
+const userRouter = express.Router();
 
 const trackUpload = upload('uploads/tracks', [
   'image/jpeg', 'image/png', 'image/webp',
   'audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/x-m4a', 'audio/ogg'
 ]);
 
-router
+// --- Admin Routes (/api/v1/admin/tracks) ---
+adminRouter
   .route('/')
   .post(
     auth('commonAdmin'), 
@@ -23,11 +25,11 @@ router
     validate(trackValidation.createTrack), 
     trackController.createTrack
   )
-  .get(validate(trackValidation.getTracks), trackController.getTracks);
+  .get(auth('commonAdmin'), validate(trackValidation.getTracks), trackController.getTracks);
 
-router
+adminRouter
   .route('/:trackId')
-  .get(validate(trackValidation.getTrack), trackController.getTrack)
+  .get(auth('commonAdmin'), validate(trackValidation.getTrack), trackController.getTrack)
   .patch(
     auth('commonAdmin'), 
     trackUpload.fields([
@@ -39,4 +41,16 @@ router
   )
   .delete(auth('commonAdmin'), validate(trackValidation.deleteTrack), trackController.deleteTrack);
 
-module.exports = router;
+// --- User Routes (/api/v1/app/tracks) ---
+userRouter
+  .route('/')
+  .get(validate(trackValidation.getTracks), trackController.getTracks);
+
+userRouter
+  .route('/:trackId')
+  .get(validate(trackValidation.getTrack), trackController.getTrack);
+
+module.exports = {
+  adminRouter,
+  userRouter,
+};

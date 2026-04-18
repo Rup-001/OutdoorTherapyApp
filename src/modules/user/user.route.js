@@ -9,12 +9,13 @@ const convertHeicToPngMiddleware = require('../../middlewares/converter');
 const UPLOADS_FOLDER_USERS = './public/uploads/users';
 const upload = fileUploadMiddleware(UPLOADS_FOLDER_USERS);
 
-const router = express.Router();
+const adminRouter = express.Router();
+const userRouter = express.Router();
 
-// Self Profile Routes
-router.get('/self/in', auth('common'), userController.getProfile);
-router.patch(
-  '/self/update',
+// --- User/App Routes ---
+userRouter.get('/me', auth('common'), userController.getProfile);
+userRouter.patch(
+  '/me',
   auth('common'),
   upload.single('image'),
   convertHeicToPngMiddleware(UPLOADS_FOLDER_USERS),
@@ -22,16 +23,19 @@ router.patch(
   userController.updateProfile
 );
 
-// Admin Management Routes
-router
+// --- Admin Routes ---
+adminRouter
   .route('/')
   .post(auth('manageUsers'), validate(userValidation.createUser), userController.createUser)
   .get(auth('getUsers'), validate(userValidation.getUsers), userController.getUsers);
 
-router
+adminRouter
   .route('/:userId')
   .get(auth('getUsers'), validate(userValidation.getUser), userController.getUser)
   .patch(auth('manageUsers'), validate(userValidation.updateUser), userController.updateUser)
   .delete(auth('manageUsers'), validate(userValidation.deleteUser), userController.deleteUser);
 
-module.exports = router;
+module.exports = {
+  adminRouter,
+  userRouter,
+};

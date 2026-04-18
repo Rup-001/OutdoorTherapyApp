@@ -1,7 +1,10 @@
 const httpStatus = require('http-status');
+const { PrismaClient } = require('@prisma/client');
 const ApiError = require('../../utils/ApiError');
 const paginate = require('../../utils/paginate');
 const bcrypt = require('bcryptjs');
+
+const prisma = new PrismaClient();
 
 /**
  * Get user by id
@@ -43,6 +46,7 @@ const createUser = async (userBody, tx) => {
     data: {
       ...userBody,
       password: hashedPassword,
+      isEmailVerified: userBody.isEmailVerified !== undefined ? userBody.isEmailVerified : true,
     },
   });
 };
@@ -57,7 +61,8 @@ const queryUsers = async (filter, options) => {
   const args = {
     where: {
       ...filter,
-      fullName: filter.fullName ? { contains: filter.fullName, mode: 'insensitive' } : undefined,
+      email: filter.email ? { contains: filter.email, mode: 'insensitive' } : undefined,
+      isBanned: filter.isBanned !== undefined ? filter.isBanned : undefined,
     },
   };
   return paginate(prisma.user, args, options);
@@ -74,8 +79,14 @@ const updateUserById = async (userId, updateBody) => {
   if (!user) {
     throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
   }
-  if (updateBody.email && (await getUserByEmail(updateBody.email))) {
+  
+  if (updateBody.email && (await getUserByEmail(updateBody.email)) && updateBody.email !== user.email) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Email already taken');
+  }
+
+  // If password is being updated, hash it
+  if (updateBody.password) {
+    updateBody.password = await bcrypt.hash(updateBody.password, 8);
   }
   
   return prisma.user.update({

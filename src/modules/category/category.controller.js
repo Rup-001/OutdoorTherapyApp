@@ -8,8 +8,16 @@ const createCategory = catchAsync(async (req, res) => {
     ...req.body,
   };
 
-  if (req.file) {
-    categoryBody.coverImageUrl = req.file.key || req.file.path || req.file.location;
+  // Handle file uploads (icon and cover image)
+  if (req.files) {
+    if (req.files.icon) {
+      const iconFile = req.files.icon[0];
+      categoryBody.iconUrl = iconFile.key || iconFile.path || iconFile.location;
+    }
+    if (req.files.coverImage) {
+      const coverFile = req.files.coverImage[0];
+      categoryBody.coverImageUrl = coverFile.key || coverFile.path || coverFile.location;
+    }
   }
 
   const category = await categoryService.createCategory(categoryBody);
@@ -42,9 +50,19 @@ const getCategory = catchAsync(async (req, res) => {
 
 const updateCategory = catchAsync(async (req, res) => {
   const updateBody = { ...req.body };
-  if (req.file) {
-    updateBody.coverImageUrl = req.file.key || req.file.path || req.file.location;
+  
+  // Handle file uploads (icon and cover image)
+  if (req.files) {
+    if (req.files.icon) {
+      const iconFile = req.files.icon[0];
+      updateBody.iconUrl = iconFile.key || iconFile.path || iconFile.location;
+    }
+    if (req.files.coverImage) {
+      const coverFile = req.files.coverImage[0];
+      updateBody.coverImageUrl = coverFile.key || coverFile.path || coverFile.location;
+    }
   }
+
   const category = await categoryService.updateCategoryById(req.params.categoryId, updateBody);
   res.send({
     code: httpStatus.OK,
