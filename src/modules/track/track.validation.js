@@ -19,8 +19,8 @@ const getTracks = {
     isFeatured: z.preprocess((val) => val === 'true' || val === true, z.boolean().optional()),
     isSleepTonight: z.preprocess((val) => val === 'true' || val === true, z.boolean().optional()),
     sortBy: z.string().optional(),
-    limit: z.preprocess((val) => parseInt(val ? parseInt(val, 10) : undefined), z.number().int().positive().default(10)),
-    page: z.preprocess((val) => parseInt(val ? parseInt(val, 10) : undefined), z.number().int().positive().default(1)),
+    limit: z.preprocess((val) => (val ? parseInt(val, 10) : undefined), z.number().int().positive().default(10)),
+    page: z.preprocess((val) => (val ? parseInt(val, 10) : undefined), z.number().int().positive().default(1)),
   }),
 };
 

@@ -21,7 +21,11 @@ const getUser = catchAsync(async (req, res) => {
 });
 
 const updateUser = catchAsync(async (req, res) => {
-  const user = await userService.updateUserById(req.params.userId, req.body);
+  const updateBody = req.body;
+  if (updateBody.isEmailVerified === true) {
+    updateBody.oneTimeCode = null;
+  }
+  const user = await userService.updateUserById(req.params.userId, updateBody);
   res.send(user);
 });
 

@@ -1,8 +1,24 @@
 const httpStatus = require('http-status');
 const { PrismaClient } = require('@prisma/client');
 const ApiError = require('../../utils/ApiError');
+const fs = require('fs');
+const path = require('path');
 
 const prisma = new PrismaClient();
+
+/**
+ * Helper function to delete files from local storage
+ * @param {string} filePath 
+ */
+const deleteLocalFile = (filePath) => {
+  if (filePath && fs.existsSync(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch (err) {
+      console.error(`Failed to delete local file: ${filePath}`, err);
+    }
+  }
+};
 
 /**
  * Create a category
@@ -31,20 +47,40 @@ const queryCategories = async (filter, options) => {
     orderBy = { [field]: order };
   }
 
+  // Improve search filter (Case-insensitive partial match)
+  const where = {};
+  if (filter.name) {
+    where.name = {
+      contains: filter.name,
+      mode: 'insensitive',
+    };
+  }
+
   const categories = await prisma.category.findMany({
-    where: filter,
-    take: limit,
+    where,
+    take: Number(limit),
     skip: skip,
     orderBy: orderBy,
+    include: {
+      _count: {
+        select: { tracks: true }
+      }
+    }
   });
 
-  const totalResults = await prisma.category.count({ where: filter });
+  // Map dynamic count to totalTracks for consistency
+  const results = categories.map(cat => ({
+    ...cat,
+    totalTracks: cat._count.tracks
+  }));
+
+  const totalResults = await prisma.category.count({ where });
   const totalPages = Math.ceil(totalResults / limit);
 
   return {
-    results: categories,
-    page,
-    limit,
+    results: results,
+    page: Number(page),
+    limit: Number(limit),
     totalPages,
     totalResults,
   };
@@ -59,6 +95,7 @@ const getCategoryById = async (id) => {
   const category = await prisma.category.findUnique({
     where: { id },
     include: {
+      tracks: true, // Populate shob gan gulo
       _count: {
         select: { tracks: true }
       }
@@ -67,7 +104,12 @@ const getCategoryById = async (id) => {
   if (!category) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Category not found');
   }
-  return category;
+  
+  // Return mapped data
+  return {
+    ...category,
+    totalTracks: category._count.tracks
+  };
 };
 
 /**
@@ -79,6 +121,16 @@ const getCategoryById = async (id) => {
 const updateCategoryById = async (categoryId, updateBody) => {
   const category = await getCategoryById(categoryId);
   
+  // If a new icon is uploaded, delete the old one
+  if (updateBody.iconUrl && category.iconUrl && updateBody.iconUrl !== category.iconUrl) {
+    deleteLocalFile(category.iconUrl);
+  }
+
+  // If a new cover image is uploaded, delete the old one
+  if (updateBody.coverImageUrl && category.coverImageUrl && updateBody.coverImageUrl !== category.coverImageUrl) {
+    deleteLocalFile(category.coverImageUrl);
+  }
+
   const updatedCategory = await prisma.category.update({
     where: { id: category.id },
     data: updateBody,
@@ -95,6 +147,10 @@ const updateCategoryById = async (categoryId, updateBody) => {
 const deleteCategoryById = async (categoryId) => {
   const category = await getCategoryById(categoryId);
   
+  // Delete associated files from storage
+  deleteLocalFile(category.iconUrl);
+  deleteLocalFile(category.coverImageUrl);
+
   await prisma.category.delete({
     where: { id: category.id },
   });
