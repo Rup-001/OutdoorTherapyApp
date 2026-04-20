@@ -40,6 +40,7 @@ const updateUser = {
     fullName: z.string().optional(),
     phoneNumber: z.string().optional(),
     address: z.string().optional(),
+    sleepTimer: z.preprocess((val) => (val ? parseInt(val, 10) : undefined), z.number().optional()),
     role: z.enum(['USER', 'ADMIN', 'SUPERADMIN']).optional(),
     isEmailVerified: z.boolean().optional(),
     isBanned: z.boolean().optional(),

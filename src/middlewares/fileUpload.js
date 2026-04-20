@@ -31,7 +31,6 @@ module.exports = function (UPLOADS_FOLDER, allowedMimeTypes) {
     storage = multerS3({
       s3: s3,
       bucket: config.storage.s3.bucket,
-      acl: "public-read",
       contentType: multerS3.AUTO_CONTENT_TYPE,
       key: function (req, file, cb) {
         const fileExt = file.originalname.split(".").pop();

@@ -3,6 +3,8 @@ const pick = require('../../utils/pick');
 const catchAsync = require('../../utils/catchAsync');
 const { trackService } = require('./index');
 
+const response = require('../../config/response');
+
 const createTrack = catchAsync(async (req, res) => {
   const trackBody = {
     ...req.body,
@@ -21,31 +23,41 @@ const createTrack = catchAsync(async (req, res) => {
   }
 
   const track = await trackService.createTrack(trackBody);
-  res.status(httpStatus.CREATED).send({
-    code: httpStatus.CREATED,
-    message: 'Track created successfully',
-    data: track,
-  });
+  res.status(httpStatus.CREATED).send(
+    response({
+      code: httpStatus.CREATED,
+      message: 'Track created successfully',
+      status: 'OK',
+      data: track,
+    })
+  );
 });
 
 const getTracks = catchAsync(async (req, res) => {
   const filter = pick(req.query, ['title', 'categoryId', 'isFeatured', 'isSleepTonight']);
   const options = pick(req.query, ['sortBy', 'limit', 'page']);
   const result = await trackService.queryTracks(filter, options);
-  res.send({
-    code: httpStatus.OK,
-    message: 'Tracks fetched successfully',
-    data: result,
-  });
+  res.status(httpStatus.OK).send(
+    response({
+      code: httpStatus.OK,
+      message: 'Tracks fetched successfully',
+      status: 'OK',
+      data: result,
+    })
+  );
 });
 
 const getTrack = catchAsync(async (req, res) => {
-  const track = await trackService.getTrackById(req.params.trackId);
-  res.send({
-    code: httpStatus.OK,
-    message: 'Track fetched successfully',
-    data: track,
-  });
+  const userId = req.user ? req.user.id : null;
+  const track = await trackService.getTrackById(req.params.trackId, userId);
+  res.status(httpStatus.OK).send(
+    response({
+      code: httpStatus.OK,
+      message: 'Track fetched successfully',
+      status: 'OK',
+      data: track,
+    })
+  );
 });
 
 const updateTrack = catchAsync(async (req, res) => {

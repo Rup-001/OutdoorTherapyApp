@@ -271,7 +271,14 @@ const logout = catchAsync(async (req, res) => {
 
 const refreshTokens = catchAsync(async (req, res) => {
   const tokens = await authService.refreshAuth(req.body.refreshToken);
-  res.send({ ...tokens });
+  res.status(httpStatus.OK).json(
+    response({
+      message: 'Tokens Refreshed',
+      status: 'OK',
+      code: httpStatus.OK,
+      data: { tokens },
+    })
+  );
 });
 
 const changePassword = catchAsync(async (req, res) => {
