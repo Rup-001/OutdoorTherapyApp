@@ -66,7 +66,7 @@ app.get("/api/v1/health", (req, res) => {
 
 // send back a 404 error for any unknown api request
 app.use((req, res, next) => {
-  next(new ApiError(httpStatus.NOT_FOUND, "Not found"));
+  next(new ApiError(httpStatus.NOT_FOUND, "API Not found"));
 });
 
 // convert error to ApiError, if needed

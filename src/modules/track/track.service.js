@@ -1,9 +1,8 @@
 const httpStatus = require('http-status');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../../config/prisma');
 const ApiError = require('../../utils/ApiError');
 const fs = require('fs');
-
-const prisma = new PrismaClient();
+const { getSignedFileUrl } = require('../../services/r2.service');
 
 /**
  * Helper function to delete files from local storage
@@ -72,11 +71,17 @@ const queryTracks = async (filter, options) => {
     }
   });
 
+  const results = await Promise.all(tracks.map(async (track) => ({
+    ...track,
+    audioUrl: await getSignedFileUrl(track.audioUrl),
+    coverImageUrl: await getSignedFileUrl(track.coverImageUrl),
+  })));
+
   const totalResults = await prisma.track.count({ where });
   const totalPages = Math.ceil(totalResults / limit);
 
   return {
-    results: tracks,
+    results,
     page: Number(page),
     limit: Number(limit),
     totalPages,
@@ -87,21 +92,43 @@ const queryTracks = async (filter, options) => {
 /**
  * Get track by id
  * @param {string} id
+ * @param {string} [userId] - Optional userId to fetch play history
  * @returns {Promise<Track>}
  */
-const getTrackById = async (id) => {
+const getTrackById = async (id, userId) => {
   const track = await prisma.track.findUnique({
     where: { id },
     include: {
       category: {
         select: { name: true }
-      }
+      },
+      playHistory: userId ? {
+        where: { userId },
+        select: { playedSeconds: true }
+      } : false
     }
   });
+  
   if (!track) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Track not found');
   }
-  return track;
+
+  // Generate signed URLs
+  const audioUrl = await getSignedFileUrl(track.audioUrl);
+  const coverImageUrl = await getSignedFileUrl(track.coverImageUrl);
+
+  // Flatten playHistory for easier frontend access
+  const playedSeconds = track.playHistory && track.playHistory.length > 0 
+    ? track.playHistory[0].playedSeconds 
+    : 0;
+
+  return {
+    ...track,
+    audioUrl,
+    coverImageUrl,
+    playedSeconds,
+    playHistory: undefined // Remove the array from response
+  };
 };
 
 /**

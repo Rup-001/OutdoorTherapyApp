@@ -1,10 +1,8 @@
 const httpStatus = require('http-status');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../../config/prisma');
 const ApiError = require('../../utils/ApiError');
 const paginate = require('../../utils/paginate');
 const bcrypt = require('bcryptjs');
-
-const prisma = new PrismaClient();
 
 /**
  * Get user by id

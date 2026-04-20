@@ -1,10 +1,9 @@
 const httpStatus = require('http-status');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../../config/prisma');
 const ApiError = require('../../utils/ApiError');
 const fs = require('fs');
 const path = require('path');
-
-const prisma = new PrismaClient();
+const { getSignedFileUrl } = require('../../services/r2.service');
 
 /**
  * Helper function to delete files from local storage
@@ -68,11 +67,13 @@ const queryCategories = async (filter, options) => {
     }
   });
 
-  // Map dynamic count to totalTracks for consistency
-  const results = categories.map(cat => ({
+  // Map dynamic count and signed URLs
+  const results = await Promise.all(categories.map(async (cat) => ({
     ...cat,
+    iconUrl: await getSignedFileUrl(cat.iconUrl),
+    coverImageUrl: await getSignedFileUrl(cat.coverImageUrl),
     totalTracks: cat._count.tracks
-  }));
+  })));
 
   const totalResults = await prisma.category.count({ where });
   const totalPages = Math.ceil(totalResults / limit);
@@ -95,7 +96,11 @@ const getCategoryById = async (id) => {
   const category = await prisma.category.findUnique({
     where: { id },
     include: {
-      tracks: true, // Populate shob gan gulo
+      tracks: {
+        include: {
+          category: { select: { name: true } }
+        }
+      },
       _count: {
         select: { tracks: true }
       }
@@ -105,11 +110,20 @@ const getCategoryById = async (id) => {
     throw new ApiError(httpStatus.NOT_FOUND, 'Category not found');
   }
   
-  // Return mapped data
-  return {
+  // Map signed URLs for category and its tracks
+  const mappedCategory = {
     ...category,
-    totalTracks: category._count.tracks
+    iconUrl: await getSignedFileUrl(category.iconUrl),
+    coverImageUrl: await getSignedFileUrl(category.coverImageUrl),
+    totalTracks: category._count.tracks,
+    tracks: await Promise.all(category.tracks.map(async (track) => ({
+      ...track,
+      audioUrl: await getSignedFileUrl(track.audioUrl),
+      coverImageUrl: await getSignedFileUrl(track.coverImageUrl),
+    })))
   };
+
+  return mappedCategory;
 };
 
 /**

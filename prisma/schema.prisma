@@ -65,6 +65,7 @@ model User {
   isProfileCompleted Boolean   @default(false)
   fcmToken           String?
   isDeleted          Boolean   @default(false)
+  sleepTimer         Int       @default(0) // Default sleep timer in minutes
   securitySettings   Json?     @default("{\"recoveryEmail\": null, \"recoveryPhone\": null, \"securityQuestion\": null}")
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt

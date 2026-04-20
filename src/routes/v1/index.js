@@ -4,6 +4,9 @@ const userRoute = require('../../modules/user/user.route');
 const appSettingsRoute = require('../../modules/appSettings/appSettings.route');
 const categoryRoute = require('../../modules/category/category.route');
 const trackRoute = require('../../modules/track/track.route');
+const favouriteRoute = require('../../modules/favourite/favourite.route');
+const downloadRoute = require('../../modules/download/download.route');
+const playHistoryRoute = require('../../modules/playHistory/playHistory.route');
 const cmsRoute = require('../../modules/cms/cms.route');
 const docsRoute = require('./docs.routes');
 const config = require('../../config/config');
@@ -59,6 +62,18 @@ const appRoutes = [
   {
     path: '/app/tracks',
     route: trackRoute.userRouter,
+  },
+  {
+    path: '/app/favourites',
+    route: favouriteRoute,
+  },
+  {
+    path: '/app/play-history',
+    route: playHistoryRoute,
+  },
+  {
+    path: '/app/downloads',
+    route: downloadRoute,
   },
   {
     path: '/app/cms',

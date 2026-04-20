@@ -1,4 +1,5 @@
 const httpStatus = require('http-status');
+const prisma = require('../../config/prisma');
 const userService = require('../user/user.service');
 const tokenService = require('./token.service');
 const ApiError = require('../../utils/ApiError');
