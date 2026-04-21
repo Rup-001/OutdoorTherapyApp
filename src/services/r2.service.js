@@ -21,9 +21,20 @@ const s3Client = new S3Client({
 const getSignedFileUrl = async (key, expiresIn = 3600) => {
   if (!key) return null;
   
-  // If storage mode is local, return the local URL
+  // If storage mode is local, return the local URL with BASE_URL support
   if (config.storage.mode === 'local') {
-    return `${process.env.BASE_URL || 'http://localhost:3000'}/${key}`;
+    let baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    
+    // Remove trailing slash from baseUrl
+    baseUrl = baseUrl.replace(/\/+$/, "");
+    
+    // Clean the key: replace backslashes with forward slashes and remove leading/double slashes
+    let cleanKey = key.replace(/\\/g, '/').replace(/\/+/g, '/');
+    if (!cleanKey.startsWith('/')) {
+      cleanKey = '/' + cleanKey;
+    }
+    
+    return `${baseUrl}${cleanKey}`;
   }
 
   const command = new GetObjectCommand({
