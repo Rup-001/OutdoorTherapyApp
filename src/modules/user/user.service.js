@@ -44,7 +44,7 @@ const createUser = async (userBody, tx) => {
     data: {
       ...userBody,
       password: hashedPassword,
-      isEmailVerified: userBody.isEmailVerified !== undefined ? userBody.isEmailVerified : true,
+      isEmailVerified: userBody.isEmailVerified !== undefined ? userBody.isEmailVerified : false,
     },
   });
 };
