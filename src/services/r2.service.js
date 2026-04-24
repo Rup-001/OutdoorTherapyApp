@@ -1,6 +1,8 @@
-const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const config = require('../config/config');
+const fs = require('fs');
+const path = require('path');
 
 const s3Client = new S3Client({
   region: config.storage.s3.region,
@@ -11,6 +13,39 @@ const s3Client = new S3Client({
   endpoint: config.storage.s3.endpoint,
   forcePathStyle: true,
 });
+
+/**
+ * Delete a file from local storage or R2/S3
+ * @param {string} key - File key or local path
+ */
+const deleteFile = async (key) => {
+  if (!key) return;
+
+  if (config.storage.mode === 'local') {
+    // Determine the actual path on disk
+    const filePath = path.join(__dirname, '../../', key);
+    if (fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+      } catch (err) {
+        console.error(`Failed to delete local file: ${filePath}`, err);
+      }
+    }
+    return;
+  }
+
+  // R2/S3 Delete
+  const command = new DeleteObjectCommand({
+    Bucket: config.storage.s3.bucket,
+    Key: key,
+  });
+
+  try {
+    await s3Client.send(command);
+  } catch (error) {
+    console.error('Error deleting file from R2:', error);
+  }
+};
 
 /**
  * Generate a signed URL for a private R2/S3 object
@@ -53,4 +88,5 @@ const getSignedFileUrl = async (key, expiresIn = 3600) => {
 
 module.exports = {
   getSignedFileUrl,
+  deleteFile,
 };

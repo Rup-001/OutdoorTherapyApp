@@ -48,6 +48,7 @@ const register = catchAsync(async (req, res) => {
       role: 'USER', // FORCE ROLE TO USER
       userType: 'FREE',
       isEmailVerified: false, // New users must verify email
+      ...rest,
     });
   }
 

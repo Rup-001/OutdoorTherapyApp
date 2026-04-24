@@ -4,8 +4,10 @@ const createUser = {
   body: z.object({
     email: z.string().email(),
     password: z.string().min(8),
+    fullName: z.string().optional(),
     firstName: z.string().optional(),
     lastName: z.string().optional(),
+    phoneNumber: z.string().optional(),
     role: z.preprocess((val) => (typeof val === 'string' ? val.toUpperCase() : val), 
     z.enum(['USER', 'ADMIN', 'SUPERADMIN']).default('USER')),  
   }),

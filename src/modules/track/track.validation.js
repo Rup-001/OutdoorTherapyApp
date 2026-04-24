@@ -1,5 +1,14 @@
 const { z } = require('zod');
 
+/**
+ * Helper to preprocess boolean strings to actual booleans
+ */
+const boolPreprocess = (val) => {
+  if (val === undefined || val === null) return undefined;
+  if (typeof val === 'string') return val.toLowerCase() === 'true';
+  return val === true;
+};
+
 const createTrack = {
   body: z.object({
     categoryId: z.string().uuid(),
@@ -7,8 +16,8 @@ const createTrack = {
     description: z.string().optional().nullable(),
     tagline: z.string().optional().nullable(),
     durationSeconds: z.preprocess((val) => val ? parseInt(val, 10) : null, z.number().int().optional().nullable()),
-    isFeatured: z.preprocess((val) => val === 'true' || val === true, z.boolean().default(false)),
-    isSleepTonight: z.preprocess((val) => val === 'true' || val === true, z.boolean().default(false)),
+    isFeatured: z.preprocess(boolPreprocess, z.boolean().default(false)),
+    isSleepTonight: z.preprocess(boolPreprocess, z.boolean().default(false)),
   }),
 };
 
@@ -16,8 +25,8 @@ const getTracks = {
   query: z.object({
     categoryId: z.string().uuid().optional(),
     title: z.string().optional(),
-    isFeatured: z.preprocess((val) => val === 'true' || val === true, z.boolean().optional()),
-    isSleepTonight: z.preprocess((val) => val === 'true' || val === true, z.boolean().optional()),
+    isFeatured: z.preprocess(boolPreprocess, z.boolean().optional()),
+    isSleepTonight: z.preprocess(boolPreprocess, z.boolean().optional()),
     sortBy: z.string().optional(),
     limit: z.preprocess((val) => (val ? parseInt(val, 10) : undefined), z.number().int().positive().default(10)),
     page: z.preprocess((val) => (val ? parseInt(val, 10) : undefined), z.number().int().positive().default(1)),
@@ -40,8 +49,8 @@ const updateTrack = {
     description: z.string().optional().nullable(),
     tagline: z.string().optional().nullable(),
     durationSeconds: z.preprocess((val) => val ? parseInt(val, 10) : null, z.number().int().optional().nullable()),
-    isFeatured: z.preprocess((val) => val === 'true' || val === true, z.boolean().optional()),
-    isSleepTonight: z.preprocess((val) => val === 'true' || val === true, z.boolean().optional()),
+    isFeatured: z.preprocess(boolPreprocess, z.boolean().optional()),
+    isSleepTonight: z.preprocess(boolPreprocess, z.boolean().optional()),
   }).partial(),
 };
 

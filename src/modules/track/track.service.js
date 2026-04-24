@@ -1,22 +1,7 @@
 const httpStatus = require('http-status');
 const prisma = require('../../config/prisma');
 const ApiError = require('../../utils/ApiError');
-const fs = require('fs');
-const { getSignedFileUrl } = require('../../services/r2.service');
-
-/**
- * Helper function to delete files from local storage
- * @param {string} filePath 
- */
-const deleteLocalFile = (filePath) => {
-  if (filePath && fs.existsSync(filePath)) {
-    try {
-      fs.unlinkSync(filePath);
-    } catch (err) {
-      console.error(`Failed to delete local file: ${filePath}`, err);
-    }
-  }
-};
+const { getSignedFileUrl, deleteFile } = require('../../services/r2.service');
 
 /**
  * Create a track
@@ -24,6 +9,22 @@ const deleteLocalFile = (filePath) => {
  * @returns {Promise<Track>}
  */
 const createTrack = async (trackBody) => {
+  // Check limits for Featured tracks
+  if (trackBody.isFeatured === true || trackBody.isFeatured === 'true') {
+    const featuredCount = await prisma.track.count({ where: { isFeatured: true } });
+    if (featuredCount >= 6) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Featured tracks limit reached (Max 6). Please unfeature another track first.');
+    }
+  }
+
+  // Check limits for Sleep Tonight tracks
+  if (trackBody.isSleepTonight === true || trackBody.isSleepTonight === 'true') {
+    const sleepTonightCount = await prisma.track.count({ where: { isSleepTonight: true } });
+    if (sleepTonightCount >= 6) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Sleep Tonight tracks limit reached (Max 6). Please remove another track from this list first.');
+    }
+  }
+
   return prisma.track.create({
     data: trackBody,
   });
@@ -36,7 +37,7 @@ const createTrack = async (trackBody) => {
  * @returns {Promise<QueryResult>}
  */
 const queryTracks = async (filter, options) => {
-  const { limit = 10, page = 1, sortBy } = options;
+  const { limit = 20, page = 1, sortBy } = options;
   const skip = (page - 1) * limit;
 
   let orderBy = { createdAt: 'desc' };
@@ -52,17 +53,21 @@ const queryTracks = async (filter, options) => {
   if (filter.categoryId) {
     where.categoryId = filter.categoryId;
   }
+  
+  // Apply filter ONLY if explicitly requested in query
   if (filter.isFeatured !== undefined) {
-    where.isFeatured = filter.isFeatured === 'true';
+    where.isFeatured = filter.isFeatured === 'true' || filter.isFeatured === true;
   }
   if (filter.isSleepTonight !== undefined) {
-    where.isSleepTonight = filter.isSleepTonight === 'true';
+    where.isSleepTonight = filter.isSleepTonight === 'true' || filter.isSleepTonight === true;
   }
+
+  console.log('[Prisma Filter] applied "where" clause:', JSON.stringify(where, null, 2));
 
   const tracks = await prisma.track.findMany({
     where,
     take: Number(limit),
-    skip: skip,
+    skip: Number(skip),
     orderBy: orderBy,
     include: {
       category: {
@@ -96,18 +101,34 @@ const queryTracks = async (filter, options) => {
  * @returns {Promise<Track>}
  */
 const getTrackById = async (id, userId) => {
-  const track = await prisma.track.findUnique({
+  // Update playCount incrementing it by 1
+  await prisma.track.update({
     where: { id },
-    include: {
-      category: {
-        select: { name: true }
-      },
-      playHistory: userId ? {
-        where: { userId },
-        select: { playedSeconds: true }
-      } : false
-    }
+    data: { playCount: { increment: 1 } },
   });
+
+  const [track, favourite] = await Promise.all([
+    prisma.track.findUnique({
+      where: { id },
+      include: {
+        category: {
+          select: { name: true }
+        },
+        playHistory: userId ? {
+          where: { userId },
+          select: { playedSeconds: true }
+        } : false
+      }
+    }),
+    userId ? prisma.favourite.findUnique({
+      where: {
+        userId_trackId: {
+          userId,
+          trackId: id
+        }
+      }
+    }) : null
+  ]);
   
   if (!track) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Track not found');
@@ -127,6 +148,7 @@ const getTrackById = async (id, userId) => {
     audioUrl,
     coverImageUrl,
     playedSeconds,
+    isFavourite: !!favourite, // Converts object/null to boolean
     playHistory: undefined // Remove the array from response
   };
 };
@@ -138,18 +160,37 @@ const getTrackById = async (id, userId) => {
  * @returns {Promise<Track>}
  */
 const updateTrackById = async (trackId, updateBody) => {
-  const track = await getTrackById(trackId);
+  const track = await prisma.track.findUnique({ where: { id: trackId } });
+  if (!track) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Track not found');
+  }
+
+  // Check limits for Featured tracks if it's being enabled now
+  if ((updateBody.isFeatured === true || updateBody.isFeatured === 'true') && track.isFeatured !== true) {
+    const featuredCount = await prisma.track.count({ where: { isFeatured: true } });
+    if (featuredCount >= 6) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Featured tracks limit reached (Max 6). Please unfeature another track first.');
+    }
+  }
+
+  // Check limits for Sleep Tonight tracks if it's being enabled now
+  if ((updateBody.isSleepTonight === true || updateBody.isSleepTonight === 'true') && track.isSleepTonight !== true) {
+    const sleepTonightCount = await prisma.track.count({ where: { isSleepTonight: true } });
+    if (sleepTonightCount >= 6) {
+      throw new ApiError(httpStatus.BAD_REQUEST, 'Sleep Tonight tracks limit reached (Max 6). Please remove another track from this list first.');
+    }
+  }
   
   // Cleanup old files if new ones are uploaded
   if (updateBody.audioUrl && track.audioUrl && updateBody.audioUrl !== track.audioUrl) {
-    deleteLocalFile(track.audioUrl);
+    await deleteFile(track.audioUrl);
   }
   if (updateBody.coverImageUrl && track.coverImageUrl && updateBody.coverImageUrl !== track.coverImageUrl) {
-    deleteLocalFile(track.coverImageUrl);
+    await deleteFile(track.coverImageUrl);
   }
 
   const updatedTrack = await prisma.track.update({
-    where: { id: track.id },
+    where: { id: trackId },
     data: updateBody,
   });
 
@@ -162,23 +203,51 @@ const updateTrackById = async (trackId, updateBody) => {
  * @returns {Promise<Track>}
  */
 const deleteTrackById = async (trackId) => {
-  const track = await getTrackById(trackId);
+  const track = await prisma.track.findUnique({ where: { id: trackId } });
+  if (!track) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Track not found');
+  }
   
   // Cleanup files
-  deleteLocalFile(track.audioUrl);
-  deleteLocalFile(track.coverImageUrl);
+  await deleteFile(track.audioUrl);
+  await deleteFile(track.coverImageUrl);
 
   await prisma.track.delete({
-    where: { id: track.id },
+    where: { id: trackId },
   });
 
   return track;
+};
+
+/**
+ * Get popular tracks (Top 10 by playCount)
+ * @returns {Promise<Array>}
+ */
+const getPopularTracks = async () => {
+  const tracks = await prisma.track.findMany({
+    take: 10,
+    orderBy: {
+      playCount: 'desc',
+    },
+    include: {
+      category: {
+        select: { name: true }
+      }
+    }
+  });
+
+  return Promise.all(tracks.map(async (track) => ({
+    ...track,
+    audioUrl: await getSignedFileUrl(track.audioUrl),
+    coverImageUrl: await getSignedFileUrl(track.coverImageUrl),
+  })));
 };
 
 module.exports = {
   createTrack,
   queryTracks,
   getTrackById,
+  getPopularTracks,
   updateTrackById,
   deleteTrackById,
 };

@@ -3,6 +3,50 @@ const prisma = require('../../config/prisma');
 const ApiError = require('../../utils/ApiError');
 const paginate = require('../../utils/paginate');
 const bcrypt = require('bcryptjs');
+const { getSignedFileUrl } = require('../../services/r2.service');
+
+/**
+ * Map user profile image to full URL
+ */
+const mapUserImageUrl = async (user) => {
+  if (!user) return user;
+  return {
+    ...user,
+    profileImage: await getSignedFileUrl(user.profileImage),
+  };
+};
+
+/**
+ * Create a user
+ * @param {Object} userBody
+ * @returns {Promise<User>}
+ */
+const createUser = async (userBody) => {
+  if (await prisma.user.findUnique({ where: { email: userBody.email } })) {
+    throw new ApiError(httpStatus.BAD_REQUEST, 'Email already taken');
+  }
+  const hashedPassword = await bcrypt.hash(userBody.password, 8);
+  const user = await prisma.user.create({
+    data: {
+      ...userBody,
+      password: hashedPassword,
+      isEmailVerified: userBody.isEmailVerified !== undefined ? userBody.isEmailVerified : false,
+    },
+  });
+  return mapUserImageUrl(user);
+};
+
+/**
+ * Query for users
+ * @param {Object} filter - Prisma filter
+ * @param {Object} options - Query options
+ * @returns {Promise<QueryResult>}
+ */
+const queryUsers = async (filter, options) => {
+  const users = await paginate(prisma.user, filter, options);
+  users.results = await Promise.all(users.results.map(mapUserImageUrl));
+  return users;
+};
 
 /**
  * Get user by id
@@ -10,9 +54,10 @@ const bcrypt = require('bcryptjs');
  * @returns {Promise<User>}
  */
 const getUserById = async (id) => {
-  return prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id },
   });
+  return mapUserImageUrl(user);
 };
 
 /**
@@ -21,49 +66,10 @@ const getUserById = async (id) => {
  * @returns {Promise<User>}
  */
 const getUserByEmail = async (email) => {
-  return prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { email },
   });
-};
-
-/**
- * Create a user
- * @param {Object} userBody
- * @param {Object} [tx] - Prisma transaction client
- * @returns {Promise<User>}
- */
-const createUser = async (userBody, tx) => {
-  const client = tx || prisma;
-  if (await getUserByEmail(userBody.email)) {
-    throw new ApiError(httpStatus.BAD_REQUEST, 'Email already taken');
-  }
-  
-  const hashedPassword = await bcrypt.hash(userBody.password, 8);
-  
-  return client.user.create({
-    data: {
-      ...userBody,
-      password: hashedPassword,
-      isEmailVerified: userBody.isEmailVerified !== undefined ? userBody.isEmailVerified : false,
-    },
-  });
-};
-
-/**
- * Query for users
- * @param {Object} filter - Filter criteria
- * @param {Object} options - Query options (page, limit, sortBy)
- * @returns {Promise<Object>}
- */
-const queryUsers = async (filter, options) => {
-  const args = {
-    where: {
-      ...filter,
-      email: filter.email ? { contains: filter.email, mode: 'insensitive' } : undefined,
-      isBanned: filter.isBanned !== undefined ? filter.isBanned : undefined,
-    },
-  };
-  return paginate(prisma.user, args, options);
+  return mapUserImageUrl(user);
 };
 
 /**
@@ -73,24 +79,21 @@ const queryUsers = async (filter, options) => {
  * @returns {Promise<User>}
  */
 const updateUserById = async (userId, updateBody) => {
-  const user = await getUserById(userId);
+  const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) {
     throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
   }
-  
-  if (updateBody.email && (await getUserByEmail(updateBody.email)) && updateBody.email !== user.email) {
+  if (updateBody.email && (await prisma.user.findUnique({ where: { email: updateBody.email, NOT: { id: userId } } }))) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Email already taken');
   }
-
-  // If password is being updated, hash it
   if (updateBody.password) {
     updateBody.password = await bcrypt.hash(updateBody.password, 8);
   }
-  
-  return prisma.user.update({
+  const updatedUser = await prisma.user.update({
     where: { id: userId },
     data: updateBody,
   });
+  return mapUserImageUrl(updatedUser);
 };
 
 /**
@@ -99,7 +102,7 @@ const updateUserById = async (userId, updateBody) => {
  * @returns {Promise<User>}
  */
 const deleteUserById = async (userId) => {
-  const user = await getUserById(userId);
+  const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) {
     throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
   }

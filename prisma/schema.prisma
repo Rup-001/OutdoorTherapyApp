@@ -99,7 +99,6 @@ model Category {
   name            String
   iconUrl         String?
   coverImageUrl   String?
-  totalTracks     Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   
@@ -129,6 +128,10 @@ model Track {
   downloads       Download[]
   playHistory     PlayHistory[]
 
+  @@index([categoryId])
+  @@index([isFeatured])
+  @@index([isSleepTonight])
+  @@index([title])
   @@map("tracks")
 }
 
@@ -136,6 +139,8 @@ model Subscription {
   id                   String             @id @default(uuid())
   userId               String
   user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId               String?
+  plan                 SubscriptionPlan?  @relation(fields: [planId], references: [id])
   stripeCustomerId     String?
   stripeSubscriptionId String?
   planType             String?
@@ -145,7 +150,27 @@ model Subscription {
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
 
+  @@index([userId])
+  @@index([stripeSubscriptionId])
   @@map("subscriptions")
+}
+
+model SubscriptionPlan {
+  id            String         @id @default(uuid())
+  name          String         // e.g., Monthly, Yearly
+  description   String?
+  price         Float
+  currency      String         @default("USD")
+  interval      String         @default("month") // month, year
+  stripePriceId String         @unique
+  paypalPlanId  String?        @unique
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  subscriptions Subscription[]
+
+  @@map("subscription_plans")
 }
 
 model Favourite {
@@ -157,6 +182,8 @@ model Favourite {
   createdAt DateTime @default(now())
 
   @@unique([userId, trackId])
+  @@index([userId])
+  @@index([trackId])
   @@map("favourites")
 }
 
@@ -171,6 +198,9 @@ model Download {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
+  @@index([userId])
+  @@index([trackId])
+  @@index([status])
   @@map("downloads")
 }
 
@@ -183,19 +213,23 @@ model PlayHistory {
   playedSeconds Int      @default(0)
   playedAt      DateTime @default(now())
 
+  @@index([userId])
+  @@index([trackId])
+  @@index([playedAt])
   @@map("play_history")
 }
 
 model AppSettings {
-  id               String   @id @default(uuid())
-  appName          String   @default("Dreamscape")
-  supportEmail     String?
-  maxDownloadsFree Int      @default(5)
-  stripeEnabled    Boolean  @default(true)
-  stripePublicKey  String?
-  stripeSecretKey  String?
-  paypalEnabled    Boolean  @default(false)
-  updatedAt        DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  appName             String   @default("Dreamscape")
+  supportEmail        String?
+  maxDownloadsFree    Int      @default(5)
+  stripeEnabled       Boolean  @default(true)
+  stripePublicKey     String?
+  stripeSecretKey     String?
+  stripeWebhookSecret String?
+  paypalEnabled       Boolean  @default(false)
+  updatedAt           DateTime @updatedAt
 
   @@map("app_settings")
 }

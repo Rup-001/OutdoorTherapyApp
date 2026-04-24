@@ -43,6 +43,10 @@ adminRouter
 
 // --- User Routes (/api/v1/app/tracks) ---
 userRouter
+  .route('/popular')
+  .get(trackController.getPopularTracks);
+
+userRouter
   .route('/')
   .get(validate(trackValidation.getTracks), trackController.getTracks);
 

@@ -2,6 +2,7 @@ const httpStatus = require('http-status');
 const catchAsync = require('../../utils/catchAsync');
 const userService = require('./user.service');
 const pick = require('../../utils/pick');
+const response = require('../../config/response');
 
 const createUser = catchAsync(async (req, res) => {
   const user = await userService.createUser(req.body);
@@ -35,16 +36,31 @@ const deleteUser = catchAsync(async (req, res) => {
 });
 
 const getProfile = catchAsync(async (req, res) => {
-  res.send(req.user);
+  const user = await userService.getUserById(req.user.id);
+  res.status(httpStatus.OK).json(
+    response({
+      message: 'Profile fetched successfully',
+      status: 'OK',
+      code: httpStatus.OK,
+      data: user,
+    })
+  );
 });
 
 const updateProfile = catchAsync(async (req, res) => {
   const updateBody = { ...req.body };
   if (req.file) {
-    updateBody.profileImage = `/uploads/users/${req.file.filename}`;
+    updateBody.profileImage = `uploads/users/${req.file.filename}`;
   }
   const user = await userService.updateUserById(req.user.id, updateBody);
-  res.send(user);
+  res.status(httpStatus.OK).json(
+    response({
+      message: 'Profile updated successfully',
+      status: 'OK',
+      code: httpStatus.OK,
+      data: user,
+    })
+  );
 });
 
 module.exports = {

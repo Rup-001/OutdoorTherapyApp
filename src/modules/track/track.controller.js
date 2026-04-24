@@ -88,10 +88,23 @@ const deleteTrack = catchAsync(async (req, res) => {
   res.status(httpStatus.NO_CONTENT).send();
 });
 
+const getPopularTracks = catchAsync(async (req, res) => {
+  const result = await trackService.getPopularTracks();
+  res.status(httpStatus.OK).send(
+    response({
+      code: httpStatus.OK,
+      message: 'Popular tracks fetched successfully',
+      status: 'OK',
+      data: result,
+    })
+  );
+});
+
 module.exports = {
   createTrack,
   getTracks,
   getTrack,
+  getPopularTracks,
   updateTrack,
   deleteTrack,
 };

@@ -1,23 +1,7 @@
 const httpStatus = require('http-status');
 const prisma = require('../../config/prisma');
 const ApiError = require('../../utils/ApiError');
-const fs = require('fs');
-const path = require('path');
-const { getSignedFileUrl } = require('../../services/r2.service');
-
-/**
- * Helper function to delete files from local storage
- * @param {string} filePath 
- */
-const deleteLocalFile = (filePath) => {
-  if (filePath && fs.existsSync(filePath)) {
-    try {
-      fs.unlinkSync(filePath);
-    } catch (err) {
-      console.error(`Failed to delete local file: ${filePath}`, err);
-    }
-  }
-};
+const { getSignedFileUrl, deleteFile } = require('../../services/r2.service');
 
 /**
  * Create a category
@@ -46,7 +30,6 @@ const queryCategories = async (filter, options) => {
     orderBy = { [field]: order };
   }
 
-  // Improve search filter (Case-insensitive partial match)
   const where = {};
   if (filter.name) {
     where.name = {
@@ -133,20 +116,23 @@ const getCategoryById = async (id) => {
  * @returns {Promise<Category>}
  */
 const updateCategoryById = async (categoryId, updateBody) => {
-  const category = await getCategoryById(categoryId);
+  const category = await prisma.category.findUnique({ where: { id: categoryId } });
+  if (!category) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Category not found');
+  }
   
   // If a new icon is uploaded, delete the old one
   if (updateBody.iconUrl && category.iconUrl && updateBody.iconUrl !== category.iconUrl) {
-    deleteLocalFile(category.iconUrl);
+    await deleteFile(category.iconUrl);
   }
 
   // If a new cover image is uploaded, delete the old one
   if (updateBody.coverImageUrl && category.coverImageUrl && updateBody.coverImageUrl !== category.coverImageUrl) {
-    deleteLocalFile(category.coverImageUrl);
+    await deleteFile(category.coverImageUrl);
   }
 
   const updatedCategory = await prisma.category.update({
-    where: { id: category.id },
+    where: { id: categoryId },
     data: updateBody,
   });
 
@@ -159,14 +145,17 @@ const updateCategoryById = async (categoryId, updateBody) => {
  * @returns {Promise<Category>}
  */
 const deleteCategoryById = async (categoryId) => {
-  const category = await getCategoryById(categoryId);
+  const category = await prisma.category.findUnique({ where: { id: categoryId } });
+  if (!category) {
+    throw new ApiError(httpStatus.NOT_FOUND, 'Category not found');
+  }
   
   // Delete associated files from storage
-  deleteLocalFile(category.iconUrl);
-  deleteLocalFile(category.coverImageUrl);
+  await deleteFile(category.iconUrl);
+  await deleteFile(category.coverImageUrl);
 
   await prisma.category.delete({
-    where: { id: category.id },
+    where: { id: categoryId },
   });
 
   return category;

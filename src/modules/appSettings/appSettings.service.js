@@ -1,5 +1,7 @@
 const httpStatus = require('http-status');
+const prisma = require('../../config/prisma');
 const ApiError = require('../../utils/ApiError');
+const { encrypt } = require('../../utils/crypto');
 
 /**
  * Get app settings (only the first record)
@@ -16,7 +18,11 @@ const getSettings = async () => {
  */
 const updateSettings = async (updateBody) => {
   const settings = await prisma.appSettings.findFirst();
-  
+
+  // Encrypt sensitive Stripe keys if they are provided in the update
+  if (updateBody.stripeSecretKey) updateBody.stripeSecretKey = encrypt(updateBody.stripeSecretKey);
+  if (updateBody.stripeWebhookSecret) updateBody.stripeWebhookSecret = encrypt(updateBody.stripeWebhookSecret);
+
   if (settings) {
     return prisma.appSettings.update({
       where: { id: settings.id },
