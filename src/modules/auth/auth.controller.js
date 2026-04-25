@@ -70,13 +70,20 @@ const register = catchAsync(async (req, res) => {
   );
 });
 
+const admin = require('firebase-admin');
+
 const googleLogin = catchAsync(async (req, res) => {
   const { idToken } = req.body;
-  const ticket = await client.verifyIdToken({
-    idToken,
-    audience: [config.googleClientId].filter(Boolean),
-  });
-  const { email, name, picture, sub: googleId } = ticket.getPayload();
+  
+  // Verify Firebase ID Token
+  let decodedToken;
+  try {
+    decodedToken = await admin.auth().verifyIdToken(idToken);
+  } catch (error) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, `Firebase authentication failed: ${error.message}`);
+  }
+
+  const { email, name, picture, uid: firebaseId } = decodedToken;
 
   let user = await userService.getUserByEmail(email);
 
@@ -87,25 +94,25 @@ const googleLogin = catchAsync(async (req, res) => {
     if (user.isBanned) {
       throw new ApiError(httpStatus.FORBIDDEN, 'This Account is Banned');
     }
-    // Update existing user with googleId and mark as verified
+    // Update existing user with googleId/firebaseId if missing
     if (!user.googleId || !user.isEmailVerified) {
       await prisma.user.update({
         where: { id: user.id },
         data: { 
-          googleId,
+          googleId: firebaseId,
           isEmailVerified: true, 
           oneTimeCode: null      
         },
       });
     }
   } else {
-    // Create new user from Google data
+    // Create new user from Firebase data
     user = await userService.createUser({
       email,
       fullName: name,
-      googleId,
+      googleId: firebaseId,
       profileImage: picture,
-      isEmailVerified: true, // Google already verified this email
+      isEmailVerified: true,
       password: Math.random().toString(36).slice(-16), // Dummy password
       role: 'USER',
       userType: 'FREE',
@@ -116,7 +123,7 @@ const googleLogin = catchAsync(async (req, res) => {
 
   res.status(httpStatus.OK).json(
     response({
-      message: 'Google Login Successful',
+      message: 'Social Login Successful',
       status: 'OK',
       code: httpStatus.OK,
       data: { user, tokens },

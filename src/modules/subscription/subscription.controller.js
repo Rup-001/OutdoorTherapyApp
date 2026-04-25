@@ -4,8 +4,8 @@ const subscriptionService = require('./subscription.service');
 const response = require('../../config/response');
 
 const createCheckoutSession = catchAsync(async (req, res) => {
-  const { planId } = req.body;
-  const checkoutUrl = await subscriptionService.createCheckoutSession(req.user, planId);
+  const { planId, paymentMethod } = req.body; // paymentMethod: 'stripe' or 'paypal'
+  const checkoutUrl = await subscriptionService.createCheckoutSession(req.user, planId, paymentMethod);
   res.status(httpStatus.OK).json(
     response({
       message: 'Checkout session created',
@@ -30,13 +30,13 @@ const getStatus = catchAsync(async (req, res) => {
 
 const getPlans = catchAsync(async (req, res) => {
   const isAdmin = req.user && (req.user.role === 'ADMIN' || req.user.role === 'SUPERADMIN');
-  const plans = await subscriptionService.getPlans(isAdmin);
+  const result = await subscriptionService.getPlans(isAdmin);
   res.status(httpStatus.OK).json(
     response({
       message: 'Plans fetched successfully',
       status: 'OK',
       code: httpStatus.OK,
-      data: plans,
+      data: result,
     })
   );
 });

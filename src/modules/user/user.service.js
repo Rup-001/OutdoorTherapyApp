@@ -5,9 +5,6 @@ const paginate = require('../../utils/paginate');
 const bcrypt = require('bcryptjs');
 const { getSignedFileUrl } = require('../../services/r2.service');
 
-/**
- * Map user profile image to full URL
- */
 const mapUserImageUrl = async (user) => {
   if (!user) return user;
   return {
@@ -16,11 +13,6 @@ const mapUserImageUrl = async (user) => {
   };
 };
 
-/**
- * Create a user
- * @param {Object} userBody
- * @returns {Promise<User>}
- */
 const createUser = async (userBody) => {
   if (await prisma.user.findUnique({ where: { email: userBody.email } })) {
     throw new ApiError(httpStatus.BAD_REQUEST, 'Email already taken');
@@ -36,23 +28,63 @@ const createUser = async (userBody) => {
   return mapUserImageUrl(user);
 };
 
-/**
- * Query for users
- * @param {Object} filter - Prisma filter
- * @param {Object} options - Query options
- * @returns {Promise<QueryResult>}
- */
-const queryUsers = async (filter, options) => {
-  const users = await paginate(prisma.user, filter, options);
+// const queryUsers = async (filter, options) => {
+//   const { search, userType } = filter;
+  
+//   // Logic: Always exclude deleted users
+//   const where = { isDeleted: false };
+
+//   // Filter by userType (FREE, BASIC, PREMIUM) - Case Insensitive handled here
+//   if (userType) {
+//     where.userType = userType.toUpperCase();
+//   }
+
+//   // Global search across multiple fields
+//   if (search) {
+//     where.OR = [
+//       { firstName: { contains: search, mode: 'insensitive' } },
+//       { lastName: { contains: search, mode: 'insensitive' } },
+//       { email: { contains: search, mode: 'insensitive' } },
+//       { fullName: { contains: search, mode: 'insensitive' } },
+//     ];
+//   }
+
+//   // Paginate utility expects { where } as the second argument
+//   const users = await paginate(prisma.user, { where }, options);
+  
+//   // Map signed URLs for profile images
+//   users.results = await Promise.all(users.results.map(mapUserImageUrl));
+  
+//   return users;
+// };
+
+
+const queryUsers = async (filter = {}, options) => {
+  const { search, userType } = filter;
+
+  const where = { isDeleted: false };
+
+  if (userType) {
+    where.userType = userType.toUpperCase();
+  }
+
+  if (search) {
+    where.OR = [
+      { firstName: { contains: search, mode: 'insensitive' } },
+      { lastName: { contains: search, mode: 'insensitive' } },
+      { email:     { contains: search, mode: 'insensitive' } },
+      { fullName:  { contains: search, mode: 'insensitive' } },
+    ];
+  }
+
+  const users = await paginate(prisma.user, { where }, options);
+
+  // Fix: remove the extra wrapping array []
   users.results = await Promise.all(users.results.map(mapUserImageUrl));
+
   return users;
 };
 
-/**
- * Get user by id
- * @param {string} id
- * @returns {Promise<User>}
- */
 const getUserById = async (id) => {
   const user = await prisma.user.findUnique({
     where: { id },
@@ -60,11 +92,6 @@ const getUserById = async (id) => {
   return mapUserImageUrl(user);
 };
 
-/**
- * Get user by email
- * @param {string} email
- * @returns {Promise<User>}
- */
 const getUserByEmail = async (email) => {
   const user = await prisma.user.findUnique({
     where: { email },
@@ -72,12 +99,6 @@ const getUserByEmail = async (email) => {
   return mapUserImageUrl(user);
 };
 
-/**
- * Update user by id
- * @param {string} userId
- * @param {Object} updateBody
- * @returns {Promise<User>}
- */
 const updateUserById = async (userId, updateBody) => {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) {
@@ -96,11 +117,6 @@ const updateUserById = async (userId, updateBody) => {
   return mapUserImageUrl(updatedUser);
 };
 
-/**
- * Delete user by id
- * @param {string} userId
- * @returns {Promise<User>}
- */
 const deleteUserById = async (userId) => {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) {

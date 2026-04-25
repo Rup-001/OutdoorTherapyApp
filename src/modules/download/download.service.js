@@ -10,26 +10,41 @@ const { getSignedFileUrl } = require('../../services/r2.service');
  * @returns {Promise<Object>}
  */
 const startDownload = async (userId, trackId) => {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const user = await prisma.user.findUnique({ 
+    where: { id: userId },
+    include: { 
+      subscriptions: {
+        where: { status: 'ACTIVE' },
+        include: { plan: true },
+        take: 1
+      }
+    }
+  });
   const track = await prisma.track.findUnique({ where: { id: trackId } });
 
   if (!track) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Track not found');
   }
 
-  // Check if user is FREE and has reached the limit
+  // Handle limits based on User Type
   if (user.userType === 'FREE') {
-    const appSettings = await prisma.appSettings.findFirst();
-    const maxLimit = appSettings ? appSettings.maxDownloadsFree : 5;
+    throw new ApiError(httpStatus.FORBIDDEN, 'Downloads are not available for Free users. Please upgrade to a plan.');
+  }
+
+  if (user.userType === 'BASIC') {
+    const activeSub = user.subscriptions[0];
+    const maxLimit = activeSub?.plan?.downloadLimit || 3;
 
     const completedDownloadsCount = await prisma.download.count({
       where: { userId, status: 'COMPLETED' },
     });
 
     if (completedDownloadsCount >= maxLimit) {
-      throw new ApiError(httpStatus.FORBIDDEN, 'Download limit reached. Upgrade to Premium for more.');
+      throw new ApiError(httpStatus.FORBIDDEN, `Download limit reached for Basic plan (${maxLimit}). Upgrade to Premium for unlimited downloads.`);
     }
   }
+
+  // PREMIUM users have no check here, logic proceeds
 
   // Check if download record already exists
   const existingDownload = await prisma.download.findFirst({
@@ -66,10 +81,6 @@ const startDownload = async (userId, trackId) => {
 
 /**
  * Update download status/progress
- * @param {string} downloadId
- * @param {string} userId
- * @param {Object} updateBody
- * @returns {Promise<Object>}
  */
 const updateDownloadStatus = async (downloadId, userId, updateBody) => {
   const download = await prisma.download.findUnique({
@@ -88,8 +99,6 @@ const updateDownloadStatus = async (downloadId, userId, updateBody) => {
 
 /**
  * Get user's completed downloads
- * @param {string} userId
- * @returns {Promise<Array>}
  */
 const getMyDownloads = async (userId) => {
   const downloads = await prisma.download.findMany({
@@ -116,8 +125,6 @@ const getMyDownloads = async (userId) => {
 
 /**
  * Delete a download record
- * @param {string} downloadId
- * @param {string} userId
  */
 const deleteDownload = async (downloadId, userId) => {
   const download = await prisma.download.findUnique({

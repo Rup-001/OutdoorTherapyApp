@@ -21,6 +21,11 @@ const getUsers = {
     sortBy: z.string().optional(),
     limit: z.preprocess((val) => (val ? parseInt(val, 10) : undefined), z.number().optional()),
     page: z.preprocess((val) => (val ? parseInt(val, 10) : undefined), z.number().optional()),
+     search: z.string().optional(),
+    userType: z.preprocess(
+  (val) => (val && typeof val === 'string' ? val.toUpperCase() : undefined),
+  z.enum(['FREE', 'BASIC', 'PREMIUM']).optional()
+),
   }),
 };
 
@@ -32,7 +37,7 @@ const getUser = {
 
 const updateUser = {
   params: z.object({
-    userId: z.string().uuid(),
+    userId: z.string().uuid().optional(),
   }),
   body: z.object({
     email: z.string().email().optional(),

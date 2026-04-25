@@ -9,6 +9,7 @@ const favouriteRoute = require('../../modules/favourite/favourite.route');
 const downloadRoute = require('../../modules/download/download.route');
 const playHistoryRoute = require('../../modules/playHistory/playHistory.route');
 const subscriptionRoute = require('../../modules/subscription/subscription.route');
+const notificationRoute = require('../../modules/notification/notification.route');
 const cmsRoute = require('../../modules/cms/cms.route');
 const docsRoute = require('./docs.routes');
 const config = require('../../config/config');
@@ -54,6 +55,10 @@ const adminRoutes = [
     route: subscriptionRoute.adminRouter,
   },
   {
+    path: '/admin/notifications',
+    route: notificationRoute.adminRouter,
+  },
+  {
     path: '/admin/cms',
     route: cmsRoute.adminRouter,
   },
@@ -88,6 +93,10 @@ const appRoutes = [
   {
     path: '/app/subscriptions',
     route: subscriptionRoute.userRouter,
+  },
+  {
+    path: '/app/notifications',
+    route: notificationRoute.userRouter,
   },
   {
     path: '/app/cms',

@@ -143,11 +143,16 @@ const getTrackById = async (id, userId) => {
     ? track.playHistory[0].playedSeconds 
     : 0;
 
+  // Fetch user to check tier
+  const user = userId ? await prisma.user.findUnique({ where: { id: userId }, select: { userType: true } }) : null;
+  const listenLimitSeconds = (!user || user.userType === 'FREE') ? 300 : null; // 300s = 5m
+
   return {
     ...track,
     audioUrl,
     coverImageUrl,
     playedSeconds,
+    listenLimitSeconds,
     isFavourite: !!favourite, // Converts object/null to boolean
     playHistory: undefined // Remove the array from response
   };

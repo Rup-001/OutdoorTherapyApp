@@ -16,6 +16,7 @@ enum Role {
 
 enum UserType {
   FREE
+  BASIC
   PREMIUM
   ADMIN
 }
@@ -157,11 +158,12 @@ model Subscription {
 
 model SubscriptionPlan {
   id            String         @id @default(uuid())
-  name          String         // e.g., Monthly, Yearly
+  name          String         // e.g., Basic, Premium
   description   String?
   price         Float
   currency      String         @default("USD")
   interval      String         @default("month") // month, year
+  downloadLimit Int            @default(0) // 0 for unlimited (Premium), or specific number (Basic)
   stripePriceId String         @unique
   paypalPlanId  String?        @unique
   isActive      Boolean        @default(true)
@@ -173,57 +175,11 @@ model SubscriptionPlan {
   @@map("subscription_plans")
 }
 
-model Favourite {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  trackId   String
-  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-
-  @@unique([userId, trackId])
-  @@index([userId])
-  @@index([trackId])
-  @@map("favourites")
-}
-
-model Download {
-  id              String         @id @default(uuid())
-  userId          String
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  trackId         String
-  track           Track          @relation(fields: [trackId], references: [id], onDelete: Cascade)
-  status          DownloadStatus @default(PENDING)
-  progressPercent Int            @default(0)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-
-  @@index([userId])
-  @@index([trackId])
-  @@index([status])
-  @@map("downloads")
-}
-
-model PlayHistory {
-  id            String   @id @default(uuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  trackId       String
-  track         Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
-  playedSeconds Int      @default(0)
-  playedAt      DateTime @default(now())
-
-  @@index([userId])
-  @@index([trackId])
-  @@index([playedAt])
-  @@map("play_history")
-}
-
 model AppSettings {
   id                  String   @id @default(uuid())
   appName             String   @default("Dreamscape")
   supportEmail        String?
-  maxDownloadsFree    Int      @default(5)
+  maxDownloadsFree    Int      @default(0)
   stripeEnabled       Boolean  @default(true)
   stripePublicKey     String?
   stripeSecretKey     String?
@@ -275,6 +231,19 @@ model TermsConditions {
   @@map("terms_conditions")
 }
 
+model NotificationCampaign {
+  id          String   @id @default(uuid())
+  title       String
+  body        String
+  image       String?
+  scheduledAt DateTime @default(now())
+  status      String   @default("pending") // pending, sent, failed
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("notification_campaigns")
+}
+
 model Support {
   id        String   @id @default(uuid())
   name      String
@@ -285,4 +254,42 @@ model Support {
   updatedAt DateTime @updatedAt
 
   @@map("supports")
+}
+
+model Favourite {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackId   String
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, trackId])
+  @@map("favourites")
+}
+
+model Download {
+  id        String         @id @default(uuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackId   String
+  track     Track          @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  status    DownloadStatus @default(COMPLETED)
+  createdAt DateTime       @default(now())
+
+  @@map("downloads")
+}
+
+model PlayHistory {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackId       String
+  track         Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  playedSeconds Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, trackId])
+  @@map("play_histories")
 }

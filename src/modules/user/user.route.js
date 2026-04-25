@@ -6,7 +6,7 @@ const auth = require('../../middlewares/auth');
 const fileUploadMiddleware = require('../../middlewares/fileUpload');
 const convertHeicToPngMiddleware = require('../../middlewares/converter');
 
-const UPLOADS_FOLDER_USERS = './public/uploads/users';
+const UPLOADS_FOLDER_USERS = './uploads/users';
 const upload = fileUploadMiddleware(UPLOADS_FOLDER_USERS);
 
 const adminRouter = express.Router();
@@ -19,7 +19,8 @@ userRouter.patch(
   auth('common'),
   upload.single('image'),
   convertHeicToPngMiddleware(UPLOADS_FOLDER_USERS),
-  validate(userValidation.updateUser),
+  // We use .partial() or a separate schema here because /me doesn't have :userId param
+  validate({ body: userValidation.updateUser.body }), 
   userController.updateProfile
 );
 

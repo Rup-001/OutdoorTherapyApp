@@ -12,7 +12,7 @@ const getStripeConfig = async () => {
   const settings = await prisma.appSettings.findFirst();
   
   if (!settings || !settings.stripeEnabled) {
-    throw new ApiError(httpStatus.SERVICE_UNAVAILABLE, 'Stripe is currently disabled by administrator');
+    throw new ApiError(httpStatus.SERVICE_UNAVAILABLE, 'Stripe payments are currently disabled by administrator');
   }
 
   let secretKey = config.stripe.secretKey;
@@ -58,44 +58,63 @@ const getOrCreateCustomer = async (user) => {
 };
 
 /**
- * Create Stripe Checkout Session for a specific Plan
+ * PayPal Checkout logic (Sandbox simulation)
+ */
+const createPaypalCheckout = async (user, plan) => {
+  const settings = await prisma.appSettings.findFirst();
+  if (!settings?.paypalEnabled) {
+    throw new ApiError(httpStatus.FORBIDDEN, 'PayPal is disabled by admin');
+  }
+
+  // Simulation URL (Real integration needs PayPal SDK)
+  const paypalUrl = `https://www.sandbox.paypal.com/checkoutnow?planId=${plan.paypalPlanId}&userId=${user.id}`;
+  return paypalUrl;
+};
+
+/**
+ * Create Checkout Session (Stripe or PayPal)
  * @param {Object} user
  * @param {string} planId
+ * @param {string} method - 'stripe' or 'paypal'
  * @returns {Promise<string>}
  */
-const createCheckoutSession = async (user, planId) => {
-  const { stripe } = await getStripeConfig();
-  
-  // Fetch the selected plan
+const createCheckoutSession = async (user, planId, method = 'stripe') => {
+  const settings = await prisma.appSettings.findFirst();
   const plan = await prisma.subscriptionPlan.findUnique({
     where: { id: planId, isActive: true },
   });
 
   if (!plan) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Subscription plan not found or inactive');
+    throw new ApiError(httpStatus.NOT_FOUND, 'Subscription plan not found');
   }
 
-  const customerId = await getOrCreateCustomer(user);
+  // --- STRIPE FLOW ---
+  if (method === 'stripe') {
+    if (settings && !settings.stripeEnabled) {
+      throw new ApiError(httpStatus.FORBIDDEN, 'Stripe is disabled by admin');
+    }
+    const { stripe } = await getStripeConfig();
+    const customerId = await getOrCreateCustomer(user);
 
-  const session = await stripe.checkout.sessions.create({
-    customer: customerId,
-    payment_method_types: ['card'],
-    line_items: [
-      {
-        price: plan.stripePriceId,
-        quantity: 1,
-      },
-    ],
-    mode: 'subscription',
-    success_url: `${config.stripe.successUrl}?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: config.stripe.cancelUrl,
-    metadata: { 
-      userId: user.id,
-      planId: plan.id
-    },
-  });
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      line_items: [{ price: plan.stripePriceId, quantity: 1 }],
+      mode: 'subscription',
+      success_url: `${config.stripe.successUrl}?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: config.stripe.cancelUrl,
+      metadata: { userId: user.id, planId: plan.id },
+    });
 
-  return session.url;
+    return session.url;
+  }
+
+  // --- PAYPAL FLOW ---
+  if (method === 'paypal') {
+    return createPaypalCheckout(user, plan);
+  }
+
+  throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid payment method selected');
 };
 
 /**
@@ -115,7 +134,7 @@ const getSubscriptionStatus = async (userId) => {
 
   return {
     userType: user.userType,
-    isPremium: user.userType === 'PREMIUM' || user.userType === 'ADMIN',
+    isPremium: user.userType === 'PREMIUM' || user.userType === 'ADMIN' || user.userType === 'BASIC',
     subscription,
   };
 };
@@ -188,6 +207,10 @@ const handleCheckoutSuccess = async (session, stripe) => {
 
   const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
 
+  // Fetch the plan to determine userType
+  const plan = await prisma.subscriptionPlan.findUnique({ where: { id: planId } });
+  const newUserType = plan?.name?.toUpperCase() === 'PREMIUM' ? 'PREMIUM' : 'BASIC';
+
   await prisma.subscription.create({
     data: {
       userId,
@@ -195,7 +218,7 @@ const handleCheckoutSuccess = async (session, stripe) => {
       stripeCustomerId,
       stripeSubscriptionId,
       status: 'ACTIVE',
-      planType: 'PREMIUM',
+      planType: newUserType,
       startDate: new Date(stripeSubscription.current_period_start * 1000),
       endDate: new Date(stripeSubscription.current_period_end * 1000),
     },
@@ -203,7 +226,7 @@ const handleCheckoutSuccess = async (session, stripe) => {
 
   await prisma.user.update({
     where: { id: userId },
-    data: { userType: 'PREMIUM' },
+    data: { userType: newUserType },
   });
 };
 
@@ -254,11 +277,19 @@ const handlePaymentFailure = async (invoice) => {
 };
 
 const getPlans = async (isAdmin = false) => {
-  const where = isAdmin ? {} : { isActive: true };
-  return prisma.subscriptionPlan.findMany({
-    where,
-    orderBy: { price: 'asc' },
-  });
+  const [plans, settings] = await Promise.all([
+    prisma.subscriptionPlan.findMany({
+      where: isAdmin ? {} : { isActive: true },
+      orderBy: { price: 'asc' },
+    }),
+    prisma.appSettings.findFirst()
+  ]);
+
+  return {
+    plans,
+    stripeEnabled: settings ? settings.stripeEnabled : true,
+    paypalEnabled: settings ? settings.paypalEnabled : false,
+  };
 };
 
 const createPlan = async (planBody) => {
