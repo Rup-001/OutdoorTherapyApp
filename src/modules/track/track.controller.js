@@ -2,23 +2,35 @@ const httpStatus = require('http-status');
 const pick = require('../../utils/pick');
 const catchAsync = require('../../utils/catchAsync');
 const { trackService } = require('./index');
-
+const { getAudioDuration } = require('../../services/r2.service');
 const response = require('../../config/response');
+
+/**
+ * Utility to extract relative file path
+ */
+const getFilePath = (file) => {
+  if (!file) return null;
+  // Prefer 'key' from multer-s3, otherwise use 'path' and normalize slashes
+  const rawPath = file.key || file.path;
+  return rawPath ? rawPath.replace(/\\/g, '/') : null;
+};
 
 const createTrack = catchAsync(async (req, res) => {
   const trackBody = {
     ...req.body,
   };
 
-  // Handle multiple file uploads (audio and cover image)
   if (req.files) {
     if (req.files.audio) {
-      const audioFile = req.files.audio[0];
-      trackBody.audioUrl = audioFile.key || audioFile.path || audioFile.location;
+      trackBody.audioUrl = getFilePath(req.files.audio[0]);
+      // Automatic Duration Calculation
+      if (!trackBody.durationSeconds) {
+        const duration = await getAudioDuration(trackBody.audioUrl);
+        if (duration) trackBody.durationSeconds = duration;
+      }
     }
     if (req.files.coverImage) {
-      const coverFile = req.files.coverImage[0];
-      trackBody.coverImageUrl = coverFile.key || coverFile.path || coverFile.location;
+      trackBody.coverImageUrl = getFilePath(req.files.coverImage[0]);
     }
   }
 
@@ -36,7 +48,8 @@ const createTrack = catchAsync(async (req, res) => {
 const getTracks = catchAsync(async (req, res) => {
   const filter = pick(req.query, ['title', 'categoryId', 'isFeatured', 'isSleepTonight']);
   const options = pick(req.query, ['sortBy', 'limit', 'page']);
-  const result = await trackService.queryTracks(filter, options);
+  const userId = req.user ? req.user.id : null;
+  const result = await trackService.queryTracks(filter, options, userId);
   res.status(httpStatus.OK).send(
     response({
       code: httpStatus.OK,
@@ -63,15 +76,15 @@ const getTrack = catchAsync(async (req, res) => {
 const updateTrack = catchAsync(async (req, res) => {
   const updateBody = { ...req.body };
 
-  // Handle file updates
   if (req.files) {
     if (req.files.audio) {
-      const audioFile = req.files.audio[0];
-      updateBody.audioUrl = audioFile.key || audioFile.path || audioFile.location;
+      updateBody.audioUrl = getFilePath(req.files.audio[0]);
+      // Automatic Duration Calculation for new audio
+      const duration = await getAudioDuration(updateBody.audioUrl);
+      if (duration) updateBody.durationSeconds = duration;
     }
     if (req.files.coverImage) {
-      const coverFile = req.files.coverImage[0];
-      updateBody.coverImageUrl = coverFile.key || coverFile.path || coverFile.location;
+      updateBody.coverImageUrl = getFilePath(req.files.coverImage[0]);
     }
   }
 

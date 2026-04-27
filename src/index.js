@@ -5,6 +5,7 @@ const logger = require("./config/logger");
 const socketIO = require("./utils/socketIO");
 const socketIo = require("socket.io");
 require("./config/redis"); // Initialize Redis connection
+require("./config/firebase"); // Initialize Firebase connection
 
 const prisma = require("./config/prisma");
 const initSchedulers = require("./utils/scheduler");

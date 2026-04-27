@@ -100,7 +100,7 @@ const createCheckoutSession = async (user, planId, method = 'stripe') => {
       customer: customerId,
       payment_method_types: ['card'],
       line_items: [{ price: plan.stripePriceId, quantity: 1 }],
-      mode: 'subscription',
+      mode: 'payment',
       success_url: `${config.stripe.successUrl}?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: config.stripe.cancelUrl,
       metadata: { userId: user.id, planId: plan.id },
@@ -134,7 +134,6 @@ const getSubscriptionStatus = async (userId) => {
 
   return {
     userType: user.userType,
-    isPremium: user.userType === 'PREMIUM' || user.userType === 'ADMIN' || user.userType === 'BASIC',
     subscription,
   };
 };
@@ -209,7 +208,9 @@ const handleCheckoutSuccess = async (session, stripe) => {
 
   // Fetch the plan to determine userType
   const plan = await prisma.subscriptionPlan.findUnique({ where: { id: planId } });
-  const newUserType = plan?.name?.toUpperCase() === 'PREMIUM' ? 'PREMIUM' : 'BASIC';
+  
+  // Use the explicit 'type' field from the plan
+  const newUserType = plan?.type || 'BASIC';
 
   await prisma.subscription.create({
     data: {

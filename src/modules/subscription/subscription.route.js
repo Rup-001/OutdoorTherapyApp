@@ -19,6 +19,7 @@ userRouter.get('/plans', subscriptionController.getPlans);
 userRouter.post('/create-checkout', auth(), validate(subscriptionValidation.createCheckoutSession), subscriptionController.createCheckoutSession);
 userRouter.get('/status', auth(), subscriptionController.getStatus);
 
+
 module.exports = {
   adminRouter,
   userRouter,

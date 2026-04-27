@@ -45,6 +45,7 @@ app.options("*", cors());
 // static files
 app.use(express.static("public"));
 app.use("/uploads", express.static("uploads"));
+app.use(express.static("uploads")); // Fallback if the path already contains 'uploads'
 
 // jwt authentication
 app.use(passport.initialize());

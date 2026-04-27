@@ -3,20 +3,27 @@ const pick = require('../../utils/pick');
 const catchAsync = require('../../utils/catchAsync');
 const { categoryService } = require('./index');
 
+/**
+ * Utility to extract relative file path
+ */
+const getFilePath = (file) => {
+  if (!file) return null;
+  // Prefer 'key' from multer-s3, otherwise use 'path' and normalize slashes
+  const rawPath = file.key || file.path;
+  return rawPath ? rawPath.replace(/\\/g, '/') : null;
+};
+
 const createCategory = catchAsync(async (req, res) => {
   const categoryBody = {
     ...req.body,
   };
 
-  // Handle file uploads (icon and cover image)
   if (req.files) {
     if (req.files.icon) {
-      const iconFile = req.files.icon[0];
-      categoryBody.iconUrl = iconFile.key || iconFile.path || iconFile.location;
+      categoryBody.iconUrl = getFilePath(req.files.icon[0]);
     }
     if (req.files.coverImage) {
-      const coverFile = req.files.coverImage[0];
-      categoryBody.coverImageUrl = coverFile.key || coverFile.path || coverFile.location;
+      categoryBody.coverImageUrl = getFilePath(req.files.coverImage[0]);
     }
   }
 
@@ -51,15 +58,12 @@ const getCategory = catchAsync(async (req, res) => {
 const updateCategory = catchAsync(async (req, res) => {
   const updateBody = { ...req.body };
   
-  // Handle file uploads (icon and cover image)
   if (req.files) {
     if (req.files.icon) {
-      const iconFile = req.files.icon[0];
-      updateBody.iconUrl = iconFile.key || iconFile.path || iconFile.location;
+      updateBody.iconUrl = getFilePath(req.files.icon[0]);
     }
     if (req.files.coverImage) {
-      const coverFile = req.files.coverImage[0];
-      updateBody.coverImageUrl = coverFile.key || coverFile.path || coverFile.location;
+      updateBody.coverImageUrl = getFilePath(req.files.coverImage[0]);
     }
   }
 

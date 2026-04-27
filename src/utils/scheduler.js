@@ -23,6 +23,10 @@ const initSchedulers = () => {
       },
     });
 
+    if (pendingCampaigns.length > 0) {
+      console.log(`[Cron] Found ${pendingCampaigns.length} pending campaigns to execute.`);
+    }
+
     for (const campaign of pendingCampaigns) {
       try {
         console.log(`[Cron] Executing campaign: ${campaign.title}`);

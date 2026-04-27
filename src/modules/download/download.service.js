@@ -4,10 +4,7 @@ const ApiError = require('../../utils/ApiError');
 const { getSignedFileUrl } = require('../../services/r2.service');
 
 /**
- * Start a download (Check limit and create PENDING record)
- * @param {string} userId
- * @param {string} trackId
- * @returns {Promise<Object>}
+ * Start a download (Check unique quota and return signed link)
  */
 const startDownload = async (userId, trackId) => {
   const user = await prisma.user.findUnique({ 
@@ -22,83 +19,87 @@ const startDownload = async (userId, trackId) => {
   });
   const track = await prisma.track.findUnique({ where: { id: trackId } });
 
-  if (!track) {
-    throw new ApiError(httpStatus.NOT_FOUND, 'Track not found');
+  if (!track) throw new ApiError(httpStatus.NOT_FOUND, 'Track not found');
+
+  // 1. Check if this track was ALREADY completed by this user (Re-download case)
+  const existingDownload = await prisma.download.findUnique({
+    where: { userId_trackId: { userId, trackId } },
+  });
+
+  // If already COMPLETED, allow re-downloading without quota checks
+  if (existingDownload && existingDownload.status === 'COMPLETED') {
+    const downloadUrl = await getSignedFileUrl(track.audioUrl);
+    return { ...existingDownload, downloadUrl };
   }
 
-  // Handle limits based on User Type
+  // 2. Quota enforcement for NEW downloads
   if (user.userType === 'FREE') {
-    throw new ApiError(httpStatus.FORBIDDEN, 'Downloads are not available for Free users. Please upgrade to a plan.');
+    throw new ApiError(httpStatus.FORBIDDEN, 'Downloads are not available for Free users.');
   }
 
   if (user.userType === 'BASIC') {
     const activeSub = user.subscriptions[0];
-    const maxLimit = activeSub?.plan?.downloadLimit || 3;
+    const maxLimit = activeSub?.plan?.downloadLimit || 3; // Default to 3 if not set in plan
 
-    const completedDownloadsCount = await prisma.download.count({
+    // Count how many UNIQUE tracks this user has already COMPLETED
+    const completedCount = await prisma.download.count({
       where: { userId, status: 'COMPLETED' },
     });
 
-    if (completedDownloadsCount >= maxLimit) {
-      throw new ApiError(httpStatus.FORBIDDEN, `Download limit reached for Basic plan (${maxLimit}). Upgrade to Premium for unlimited downloads.`);
+    if (completedCount >= maxLimit) {
+      throw new ApiError(httpStatus.FORBIDDEN, `Download limit reached for Basic plan (${maxLimit} tracks).`);
     }
   }
 
-  // PREMIUM users have no check here, logic proceeds
-
-  // Check if download record already exists
-  const existingDownload = await prisma.download.findFirst({
-    where: { userId, trackId },
+  // 3. Create or Reset PENDING record
+  const downloadRecord = await prisma.download.upsert({
+    where: { userId_trackId: { userId, trackId } },
+    update: { status: 'PENDING', progressPercent: 0 },
+    create: { userId, trackId, status: 'PENDING', progressPercent: 0 },
   });
 
-  let result;
-  if (existingDownload) {
-    // If it was failed or pending, reset it
-    result = await prisma.download.update({
-      where: { id: existingDownload.id },
-      data: { status: 'PENDING', progressPercent: 0 },
-      include: { track: true }
-    });
-  } else {
-    result = await prisma.download.create({
-      data: {
-        userId,
-        trackId,
-        status: 'PENDING',
-      },
-      include: { track: true }
-    });
-  }
-
-  // Generate signed URL for the download link
-  const downloadUrl = await getSignedFileUrl(result.track.audioUrl);
+  const downloadUrl = await getSignedFileUrl(track.audioUrl);
 
   return {
-    ...result,
+    ...downloadRecord,
     downloadUrl
   };
 };
 
 /**
- * Update download status/progress
+ * Update status (Trigger for counting logic)
  */
 const updateDownloadStatus = async (downloadId, userId, updateBody) => {
   const download = await prisma.download.findUnique({
     where: { id: downloadId },
+    include: { track: true }
   });
 
   if (!download || download.userId !== userId) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Download record not found');
   }
 
-  return prisma.download.update({
+  // Logic: If status is being changed to COMPLETED for the first time
+  const isNewlyCompleted = updateBody.status === 'COMPLETED' && download.status !== 'COMPLETED';
+
+  const updatedDownload = await prisma.download.update({
     where: { id: downloadId },
     data: updateBody,
   });
+
+  if (isNewlyCompleted) {
+    // Increment global track download count
+    await prisma.track.update({
+      where: { id: download.trackId },
+      data: { downloadCount: { increment: 1 } }
+    });
+  }
+
+  return updatedDownload;
 };
 
 /**
- * Get user's completed downloads
+ * Get user's completed downloads list
  */
 const getMyDownloads = async (userId) => {
   const downloads = await prisma.download.findMany({
@@ -124,20 +125,14 @@ const getMyDownloads = async (userId) => {
 };
 
 /**
- * Delete a download record
+ * Delete download record (Optional)
  */
 const deleteDownload = async (downloadId, userId) => {
-  const download = await prisma.download.findUnique({
-    where: { id: downloadId },
-  });
-
+  const download = await prisma.download.findUnique({ where: { id: downloadId } });
   if (!download || download.userId !== userId) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Download record not found');
   }
-
-  return prisma.download.delete({
-    where: { id: downloadId },
-  });
+  return prisma.download.delete({ where: { id: downloadId } });
 };
 
 module.exports = {

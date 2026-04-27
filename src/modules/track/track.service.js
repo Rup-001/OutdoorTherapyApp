@@ -34,9 +34,10 @@ const createTrack = async (trackBody) => {
  * Query for tracks
  * @param {Object} filter - Prisma filter
  * @param {Object} options - Query options
+ * @param {string} [userId] - Optional userId for context
  * @returns {Promise<QueryResult>}
  */
-const queryTracks = async (filter, options) => {
+const queryTracks = async (filter, options, userId = null) => {
   const { limit = 20, page = 1, sortBy } = options;
   const skip = (page - 1) * limit;
 
@@ -54,15 +55,12 @@ const queryTracks = async (filter, options) => {
     where.categoryId = filter.categoryId;
   }
   
-  // Apply filter ONLY if explicitly requested in query
   if (filter.isFeatured !== undefined) {
     where.isFeatured = filter.isFeatured === 'true' || filter.isFeatured === true;
   }
   if (filter.isSleepTonight !== undefined) {
     where.isSleepTonight = filter.isSleepTonight === 'true' || filter.isSleepTonight === true;
   }
-
-  console.log('[Prisma Filter] applied "where" clause:', JSON.stringify(where, null, 2));
 
   const tracks = await prisma.track.findMany({
     where,
@@ -71,8 +69,11 @@ const queryTracks = async (filter, options) => {
     orderBy: orderBy,
     include: {
       category: {
-        select: { name: true }
-      }
+        select: { id: true, name: true }
+      },
+      // Efficiently check favorites/downloads if userId is provided
+      favourites: userId ? { where: { userId }, select: { id: true } } : false,
+      downloads: userId ? { where: { userId, status: 'COMPLETED' }, select: { id: true } } : false,
     }
   });
 
@@ -80,6 +81,10 @@ const queryTracks = async (filter, options) => {
     ...track,
     audioUrl: await getSignedFileUrl(track.audioUrl),
     coverImageUrl: await getSignedFileUrl(track.coverImageUrl),
+    isFavourite: userId ? track.favourites.length > 0 : false,
+    isDownloaded: userId ? track.downloads.length > 0 : false,
+    favourites: undefined, // Remove relational data from output
+    downloads: undefined,
   })));
 
   const totalResults = await prisma.track.count({ where });
@@ -101,13 +106,7 @@ const queryTracks = async (filter, options) => {
  * @returns {Promise<Track>}
  */
 const getTrackById = async (id, userId) => {
-  // Update playCount incrementing it by 1
-  await prisma.track.update({
-    where: { id },
-    data: { playCount: { increment: 1 } },
-  });
-
-  const [track, favourite] = await Promise.all([
+  const [track, favourite, download] = await Promise.all([
     prisma.track.findUnique({
       where: { id },
       include: {
@@ -127,12 +126,26 @@ const getTrackById = async (id, userId) => {
           trackId: id
         }
       }
-    }) : null
+    }) : null,
+    userId ? prisma.download.findUnique({
+      where: {
+        userId_trackId: {
+          userId,
+          trackId: id
+        }
+      }
+    }) : null,
   ]);
   
   if (!track) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Track not found');
   }
+
+  // Update playCount incrementing it by 1 only if track exists
+  await prisma.track.update({
+    where: { id },
+    data: { playCount: { increment: 1 } },
+  });
 
   // Generate signed URLs
   const audioUrl = await getSignedFileUrl(track.audioUrl);
@@ -154,6 +167,7 @@ const getTrackById = async (id, userId) => {
     playedSeconds,
     listenLimitSeconds,
     isFavourite: !!favourite, // Converts object/null to boolean
+    isDownloaded: !!(download && download.status === 'COMPLETED'),
     playHistory: undefined // Remove the array from response
   };
 };

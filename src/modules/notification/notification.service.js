@@ -52,21 +52,26 @@ const sendToUser = async (userId, title, body, data = {}) => {
  * Send mass notification to all users
  */
 const sendToAll = async (title, body, data = {}) => {
+  // Fetch all active users (to send In-App notifications)
   const users = await prisma.user.findMany({
-    where: { fcmToken: { not: null }, isDeleted: false },
+    where: { isDeleted: false },
     select: { fcmToken: true, id: true },
   });
 
   if (users.length === 0) return;
 
-  // Save to In-App Notification history for all users
+  // 1. Save to In-App Notification history for ALL users
   const notificationsData = users.map(u => ({ userId: u.id, title, message: body }));
   await prisma.notification.createMany({ data: notificationsData });
 
-  if (!firebaseApp) return;
-
-  const tokens = users.map(u => u.fcmToken);
+  // 2. Filter users who have FCM tokens for Push Notification
+  const tokens = users.map(u => u.fcmToken).filter(t => t !== null);
   
+  if (!firebaseApp || tokens.length === 0) {
+    console.log(`[FCM] In-app notifications saved for ${users.length} users. Push skipped (No tokens or Firebase not config).`);
+    return;
+  }
+
   const message = {
     notification: { title, body },
     data: data,
@@ -75,7 +80,7 @@ const sendToAll = async (title, body, data = {}) => {
 
   try {
     const response = await admin.messaging().sendMulticast(message);
-    console.log(`[FCM] Sent to ${response.successCount} users. Failed: ${response.failureCount}`);
+    console.log(`[FCM] Push sent to ${response.successCount} users. Failed: ${response.failureCount}`);
   } catch (error) {
     console.error('[FCM] Mass send error:', error.message);
   }

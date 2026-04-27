@@ -58,13 +58,16 @@ const getSignedFileUrl = async (key, expiresIn = 3600) => {
   
   // If storage mode is local, return the local URL with BASE_URL support
   if (config.storage.mode === 'local') {
-    let baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    let baseUrl = process.env.BASE_URL || 'https://mohaimin8001.sobhoy.com';
     
-    // Remove trailing slash from baseUrl
-    baseUrl = baseUrl.replace(/\/+$/, "");
+    // Remove trailing slash from baseUrl if it exists
+    baseUrl = baseUrl.toString().replace(/\/+$/, "");
     
     // Clean the key: replace backslashes with forward slashes and remove leading/double slashes
     let cleanKey = key.replace(/\\/g, '/').replace(/\/+/g, '/');
+    
+    // If the key starts with 'uploads/', we should make it relative to the root URL
+    // since app.use("/uploads", express.static("uploads")) is used
     if (!cleanKey.startsWith('/')) {
       cleanKey = '/' + cleanKey;
     }
@@ -86,7 +89,40 @@ const getSignedFileUrl = async (key, expiresIn = 3600) => {
   }
 };
 
+const mm = require('music-metadata');
+
+/**
+ * Get duration of an audio file in seconds
+ * @param {string} key - File key or local path
+ * @returns {Promise<number|null>}
+ */
+const getAudioDuration = async (key) => {
+  if (!key) return null;
+
+  try {
+    if (config.storage.mode === 'local') {
+      const filePath = path.join(__dirname, '../../', key);
+      if (fs.existsSync(filePath)) {
+        const metadata = await mm.parseFile(filePath);
+        return Math.round(metadata.format.duration);
+      }
+    } else {
+      // For R2/S3, we'd ideally stream the metadata to avoid downloading the whole file
+      // This is a simplified version using the signed URL
+      const url = await getSignedFileUrl(key);
+      if (url) {
+        const metadata = await mm.fetchFromUrl(url);
+        return Math.round(metadata.format.duration);
+      }
+    }
+  } catch (error) {
+    console.error('Error calculating audio duration:', error.message);
+  }
+  return null;
+};
+
 module.exports = {
   getSignedFileUrl,
   deleteFile,
+  getAudioDuration,
 };

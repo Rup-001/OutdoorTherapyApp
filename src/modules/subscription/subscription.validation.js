@@ -9,10 +9,18 @@ const createCheckoutSession = {
 const createPlan = {
   body: z.object({
     name: z.string(),
-    description: z.string().optional(),
+    type: z.preprocess(
+      (val) => (typeof val === 'string' ? val.toUpperCase() : val),
+      z.enum(['BASIC', 'PREMIUM']).default('BASIC')
+    ),
+    description: z.array(z.string()).optional(),
     price: z.number().positive(),
     currency: z.string().default('USD'),
     interval: z.enum(['month', 'year']),
+    downloadLimit: z.preprocess(
+      (val) => (val === null || val === undefined ? 0 : parseInt(val, 10)),
+      z.number().int().min(0).default(0).optional()
+    ),
     stripePriceId: z.string(),
     paypalPlanId: z.string().optional(),
     isActive: z.boolean().default(true),
@@ -25,10 +33,18 @@ const updatePlan = {
   }),
   body: z.object({
     name: z.string().optional(),
-    description: z.string().optional(),
+    type: z.preprocess(
+      (val) => (typeof val === 'string' ? val.toUpperCase() : val),
+      z.enum(['BASIC', 'PREMIUM']).optional()
+    ),
+    description: z.array(z.string()).optional(),
     price: z.number().positive().optional(),
     currency: z.string().optional(),
     interval: z.enum(['month', 'year']).optional(),
+    downloadLimit: z.preprocess(
+      (val) => (val === null || val === undefined ? undefined : parseInt(val, 10)),
+      z.number().int().min(0).optional()
+    ),
     stripePriceId: z.string().optional(),
     paypalPlanId: z.string().optional(),
     isActive: z.boolean().optional(),

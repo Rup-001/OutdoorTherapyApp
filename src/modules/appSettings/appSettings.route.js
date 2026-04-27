@@ -8,8 +8,8 @@ const adminRouter = express.Router();
 const userRouter = express.Router();
 
 // Admin: Update settings
-adminRouter.patch('/', auth('admin'), validate(appSettingsValidation.updateSettings), appSettingsController.updateSettings);
-adminRouter.get('/', auth('admin'), appSettingsController.getSettings);
+adminRouter.patch('/', auth('commonAdmin'), validate(appSettingsValidation.updateSettings), appSettingsController.updateSettings);
+adminRouter.get('/', auth('commonAdmin'), appSettingsController.getSettings);
 
 // User: Get settings
 userRouter.get('/', appSettingsController.getSettings);

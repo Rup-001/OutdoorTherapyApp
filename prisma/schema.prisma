@@ -159,7 +159,8 @@ model Subscription {
 model SubscriptionPlan {
   id            String         @id @default(uuid())
   name          String         // e.g., Basic, Premium
-  description   String?
+  type          UserType       @default(BASIC)
+  description   Json?
   price         Float
   currency      String         @default("USD")
   interval      String         @default("month") // month, year
@@ -269,14 +270,17 @@ model Favourite {
 }
 
 model Download {
-  id        String         @id @default(uuid())
-  userId    String
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  trackId   String
-  track     Track          @relation(fields: [trackId], references: [id], onDelete: Cascade)
-  status    DownloadStatus @default(COMPLETED)
-  createdAt DateTime       @default(now())
+  id              String         @id @default(uuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trackId         String
+  track           Track          @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  status          DownloadStatus @default(PENDING)
+  progressPercent Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
+  @@unique([userId, trackId])
   @@map("downloads")
 }
 
