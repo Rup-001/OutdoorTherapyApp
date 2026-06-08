@@ -4,6 +4,7 @@ const validate = require('../../middlewares/validate');
 const categoryValidation = require('./category.validation');
 const categoryController = require('./category.controller');
 const upload = require('../../middlewares/fileUpload');
+const { cache } = require('../../middlewares/cache');
 
 const adminRouter = express.Router();
 const userRouter = express.Router();
@@ -41,11 +42,11 @@ adminRouter
 // --- User Routes (/api/v1/app/categories) ---
 userRouter
   .route('/')
-  .get(validate(categoryValidation.getCategories), categoryController.getCategories);
+  .get(cache(3600), validate(categoryValidation.getCategories), categoryController.getCategories);
 
 userRouter
   .route('/:categoryId')
-  .get(validate(categoryValidation.getCategory), categoryController.getCategory);
+  .get(cache(3600), validate(categoryValidation.getCategory), categoryController.getCategory);
 
 module.exports = {
   adminRouter,

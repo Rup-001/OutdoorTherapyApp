@@ -3,6 +3,7 @@ const pick = require('../../utils/pick');
 const catchAsync = require('../../utils/catchAsync');
 const { trackService } = require('./index');
 const { getAudioDuration } = require('../../services/r2.service');
+const { clearCache } = require('../../middlewares/cache');
 const response = require('../../config/response');
 
 /**
@@ -10,7 +11,6 @@ const response = require('../../config/response');
  */
 const getFilePath = (file) => {
   if (!file) return null;
-  // Prefer 'key' from multer-s3, otherwise use 'path' and normalize slashes
   const rawPath = file.key || file.path;
   return rawPath ? rawPath.replace(/\\/g, '/') : null;
 };
@@ -23,7 +23,6 @@ const createTrack = catchAsync(async (req, res) => {
   if (req.files) {
     if (req.files.audio) {
       trackBody.audioUrl = getFilePath(req.files.audio[0]);
-      // Automatic Duration Calculation
       if (!trackBody.durationSeconds) {
         const duration = await getAudioDuration(trackBody.audioUrl);
         if (duration) trackBody.durationSeconds = duration;
@@ -35,6 +34,11 @@ const createTrack = catchAsync(async (req, res) => {
   }
 
   const track = await trackService.createTrack(trackBody);
+
+  // Logic: Notun track ashle Popular list change hote pare.
+  // Tai Redis memory theke popular tracks-er cache clear kore ditesi.
+  await clearCache('cache:/api/v1/app/tracks/popular*');
+
   res.status(httpStatus.CREATED).send(
     response({
       code: httpStatus.CREATED,
@@ -79,7 +83,6 @@ const updateTrack = catchAsync(async (req, res) => {
   if (req.files) {
     if (req.files.audio) {
       updateBody.audioUrl = getFilePath(req.files.audio[0]);
-      // Automatic Duration Calculation for new audio
       const duration = await getAudioDuration(updateBody.audioUrl);
       if (duration) updateBody.durationSeconds = duration;
     }
@@ -89,6 +92,10 @@ const updateTrack = catchAsync(async (req, res) => {
   }
 
   const track = await trackService.updateTrackById(req.params.trackId, updateBody);
+
+  // Logic: Track update hole popular list-o update hoye jabe.
+  await clearCache('cache:/api/v1/app/tracks/popular*');
+
   res.send({
     code: httpStatus.OK,
     message: 'Track updated successfully',
@@ -98,6 +105,10 @@ const updateTrack = catchAsync(async (req, res) => {
 
 const deleteTrack = catchAsync(async (req, res) => {
   await trackService.deleteTrackById(req.params.trackId);
+
+  // Logic: Track delete hole list theke soraite hobe, tai cache clear.
+  await clearCache('cache:/api/v1/app/tracks/popular*');
+
   res.status(httpStatus.NO_CONTENT).send();
 });
 

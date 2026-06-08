@@ -4,6 +4,7 @@ const validate = require('../../middlewares/validate');
 const trackValidation = require('./track.validation');
 const trackController = require('./track.controller');
 const upload = require('../../middlewares/fileUpload');
+const { cache } = require('../../middlewares/cache');
 
 const adminRouter = express.Router();
 const userRouter = express.Router();
@@ -44,7 +45,7 @@ adminRouter
 // --- User Routes (/api/v1/app/tracks) ---
 userRouter
   .route('/popular')
-  .get(trackController.getPopularTracks);
+  .get(cache(3600), trackController.getPopularTracks);
 
 userRouter
   .route('/')
