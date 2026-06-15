@@ -21,27 +21,33 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           script: |
-            # Project main folder-e jao
+            # 1. Project backend folder-e jao
             mkdir -p ~/outdoor-therapy/backend
-            # cd ~/outdoor-therapy/backend || exit
+            cd ~/outdoor-therapy/backend || exit
 
-            # Git initialization if not exists
+            # 2. Configure git for SSH automation
+            export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no"
+
+            # 3. Git initialization if not exists
             if [ ! -d ".git" ]; then
               git init
-              git remote add origin https://github.com/${{ github.repository }}.git
+              git remote add origin git@github.com:Rup-001/OutdoorTherapyApp.git
             fi
 
-            # Fetch and reset code (Safe for non-empty folders)
+            # 4. Update remote to SSH to ensure it works
+            git remote set-url origin git@github.com:Rup-001/OutdoorTherapyApp.git
+
+            # 5. Fetch and reset code
             git fetch origin main
             git reset --hard origin/main
 
-            # Enter backend folder where docker-compose lives
-            cd backend || exit
+            # 6. Enter Bankend folder where docker-compose lives
+            cd Bankend || exit
 
-            # Docker containers rebuild ebong restart
-            # Ensure .env is present in this backend folder
+            # 7. Docker containers rebuild
+            # Ensure .env is present in this Bankend folder
             docker compose down
             docker compose up -d --build
 
-            # Clean up unused images
+            # 8. Clean up
             docker image prune -f
