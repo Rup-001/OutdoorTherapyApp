@@ -22,8 +22,8 @@ jobs:
           port: 22
           script: |
             # Project main folder-e jao
-            mkdir -p ~/outdoor-therapy
-            cd ~/outdoor-therapy || exit
+            mkdir -p ~/outdoor-therapy/backend
+            cd ~/outdoor-therapy/backend || exit
 
             # Git initialization if not exists
             if [ ! -d ".git" ]; then
