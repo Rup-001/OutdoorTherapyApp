@@ -35,11 +35,11 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            # Enter Backend folder where docker-compose lives
-            cd Backend || exit
+            # Enter backend folder where docker-compose lives
+            cd backend || exit
 
             # Docker containers rebuild ebong restart
-            # Ensure .env is present in this Backend folder
+            # Ensure .env is present in this backend folder
             docker compose down
             docker compose up -d --build
 
