@@ -4,24 +4,26 @@ services:
   # Redis Service
   redis:
     image: redis:alpine
-    ports:
-      - "6379:6379"
+    restart: always
     networks:
       - outdoor_network
+    # Cache-er jonno persistence lagle niche-r line ta uncomment koro
+    # volumes:
+    #   - redis_data:/data
 
   # Backend API Service
   api:
     build: .
+    container_name: music-backend
+    restart: always
     ports:
-      - "8001:8001"
+      - "8000:8000"
     env_file:
       - .env
     environment:
-      - REDIS_HOST=redis  # Docker-er bhitor service name diye connect korte hoy
+      - NODE_ENV=production
+      - REDIS_HOST=redis
       - REDIS_PORT=6379
-    volumes:
-      - .:/app
-      - /app/node_modules
     depends_on:
       - redis
     networks:
@@ -30,3 +32,6 @@ services:
 networks:
   outdoor_network:
     driver: bridge
+
+# volumes:
+#   redis_data:

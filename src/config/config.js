@@ -29,6 +29,11 @@ const envVarsSchema = Joi.object()
     S3_ENDPOINT: Joi.string().description('S3 endpoint (optional)'),
     GOOGLE_CLIENT_ID: Joi.string().description('Google Client ID'),
     APPLE_CLIENT_ID: Joi.string().description('Apple Client ID'),
+    STRIPE_SECRET_KEY: Joi.string().allow('').default('').description('Stripe secret key'),
+    STRIPE_WEBHOOK_SECRET: Joi.string().allow('').default('').description('Stripe webhook secret'),
+    STRIPE_PRICE_ID: Joi.string().allow('').default('').description('Stripe subscription price ID'),
+    STRIPE_SUCCESS_URL: Joi.string().allow('').default('http://localhost:3000/success').description('Stripe success redirect URL'),
+    STRIPE_CANCEL_URL: Joi.string().allow('').default('http://localhost:3000/cancel').description('Stripe cancel redirect URL'),
   })
   .unknown();
 
@@ -78,4 +83,11 @@ module.exports = {
   },
   googleClientId: envVars.GOOGLE_CLIENT_ID,
   appleClientId: envVars.APPLE_CLIENT_ID,
+  stripe: {
+    secretKey: envVars.STRIPE_SECRET_KEY,
+    webhookSecret: envVars.STRIPE_WEBHOOK_SECRET,
+    priceId: envVars.STRIPE_PRICE_ID,
+    successUrl: envVars.STRIPE_SUCCESS_URL,
+    cancelUrl: envVars.STRIPE_CANCEL_URL,
+  },
 };

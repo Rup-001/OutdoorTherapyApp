@@ -1,28 +1,38 @@
-# Step 1: Base Image
-FROM node:20-alpine
+# --- Stage 1: Builder ---
+FROM node:20-alpine AS builder
 
-# Step 2: System dependencies install kora (Prisma-r jonno lagbe)
+# Install system dependencies for Prisma
 RUN apk add --no-cache openssl libc6-compat
-# Step 2: Working Directory set kora
 WORKDIR /app
 
-# Step 3: Package files copy kora
+# Copy package files and prisma schema
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Step 4: Dependencies install kora
-# Note: Docker build-er shomoy amra sob install korchi
+# Install ALL dependencies (including devDependencies for build)
 RUN npm install
 
-# Step 5: Prisma client generate kora
-# Eita image build-er shomoy-i types ar query engine ready kore rakhbe
+# Generate Prisma Client
 RUN npx prisma generate
 
-# Step 6: Bakita full code copy kora
+# Copy the rest of the source code
 COPY . .
 
-# Step 7: Port expose kora (amader app 8000 port-e chole)
-# EXPOSE 8001
+# --- Stage 2: Production ---
+FROM node:20-alpine
 
-# Step 8: App run kora
-CMD ["npm", "run", "dev"]
+# Install runtime dependencies for Prisma
+RUN apk add --no-cache openssl libc6-compat
+WORKDIR /app
+
+# Copy only necessary files from builder
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/src ./src
+
+# Expose the application port
+EXPOSE 8000
+
+# Start the application in production mode
+CMD ["npm", "start"]

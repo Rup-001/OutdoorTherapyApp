@@ -2,9 +2,15 @@ const heicConvert = require('heic-convert');
 const fs = require('fs');
 const path = require('path');
 const catchAsync = require('../utils/catchAsync');
+const config = require('../config/config');
 
 const convertHeicToPngMiddleware = (folderPath) =>
   catchAsync(async (req, res, next) => {
+    // Only run conversion if storage mode is local
+    if (config.storage.mode !== 'local') {
+      return next();
+    }
+
     if (!req.file && (!req.files || req.files.length === 0)) {
       return next();
     }
@@ -12,22 +18,26 @@ const convertHeicToPngMiddleware = (folderPath) =>
     const files = req.file ? [req.file] : req.files;
 
     for (const file of files) {
-      if (path.extname(file.originalname).toLowerCase() === '.heic') {
-        const inputBuffer = fs.readFileSync(file.path);
-        const outputBuffer = await heicConvert({
-          buffer: inputBuffer,
-          format: 'PNG',
-        });
+      if (path.extname(file.originalname).toLowerCase() === '.heic' && file.path) {
+        try {
+          const inputBuffer = fs.readFileSync(file.path);
+          const outputBuffer = await heicConvert({
+            buffer: inputBuffer,
+            format: 'PNG',
+          });
 
-        const newFileName = `${path.basename(file.filename, '.heic')}.png`;
-        const newFilePath = path.join(folderPath, newFileName);
+          const newFileName = `${path.basename(file.filename, path.extname(file.filename))}.png`;
+          const newFilePath = path.join(folderPath, newFileName);
 
-        fs.writeFileSync(newFilePath, outputBuffer);
-        fs.unlinkSync(file.path); // remove old heic file
+          fs.writeFileSync(newFilePath, outputBuffer);
+          fs.unlinkSync(file.path); // remove old heic file
 
-        file.path = newFilePath;
-        file.filename = newFileName;
-        file.mimetype = 'image/png';
+          file.path = newFilePath;
+          file.filename = newFileName;
+          file.mimetype = 'image/png';
+        } catch (error) {
+          console.error('HEIC Conversion Error:', error.message);
+        }
       }
     }
 

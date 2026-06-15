@@ -1,0 +1,42 @@
+name: Deploy to Production (AWS EC2)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script: |
+            # Project folder-e jao
+            mkdir -p ~/outdoor-therapy/backend
+            cd ~/outdoor-therapy/backend || exit
+
+            # Latest code pull kora
+            if [ -d ".git" ]; then
+              git fetch --all
+              git reset --hard origin/main
+            else
+              git clone https://github.com/${{ github.repository }}.git .
+            fi
+
+            # Docker containers rebuild ebong restart
+            # Note: Production .env file must be manually created in this folder
+            docker compose down
+            docker compose up -d --build
+
+            # Clean up unused images
+            docker image prune -f

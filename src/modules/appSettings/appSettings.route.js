@@ -4,45 +4,14 @@ const appSettingsValidation = require('./appSettings.validation');
 const appSettingsController = require('./appSettings.controller');
 const auth = require('../../middlewares/auth');
 
-const router = express.Router();
+const adminRouter = express.Router();
+const userRouter = express.Router();
 
-/**
- * @swagger
- * tags:
- *   name: AppSettings
- *   description: App general settings
- */
+// Admin: Update settings
+adminRouter.patch('/', auth('commonAdmin'), validate(appSettingsValidation.updateSettings), appSettingsController.updateSettings);
+adminRouter.get('/', auth('commonAdmin'), appSettingsController.getSettings);
 
-/**
- * @swagger
- * /settings:
- *   get:
- *     summary: Get app settings
- *     tags: [AppSettings]
- *     responses:
- *       "200":
- *         description: OK
- */
-router.get('/', appSettingsController.getSettings);
+// User: Get settings
+userRouter.get('/', appSettingsController.getSettings);
 
-/**
- * @swagger
- * /settings:
- *   patch:
- *     summary: Update app settings (Admin Only)
- *     tags: [AppSettings]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/AppSettings'
- *     responses:
- *       "200":
- *         description: OK
- */
-router.patch('/', auth('admin'), validate(appSettingsValidation.updateSettings), appSettingsController.updateSettings);
-
-module.exports = router;
+module.exports = { adminRouter, userRouter };

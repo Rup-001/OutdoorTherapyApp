@@ -23,6 +23,9 @@ if (config.env !== "test") {
 // set security HTTP headers
 app.use(helmet());
 
+// Special handle for Stripe Webhook raw body
+app.use('/api/v1/app/subscriptions/webhook', express.raw({ type: 'application/json' }));
+
 // parse json request body
 app.use(express.json());
 
@@ -42,6 +45,7 @@ app.options("*", cors());
 // static files
 app.use(express.static("public"));
 app.use("/uploads", express.static("uploads"));
+app.use(express.static("uploads")); // Fallback if the path already contains 'uploads'
 
 // jwt authentication
 app.use(passport.initialize());
@@ -66,7 +70,7 @@ app.get("/api/v1/health", (req, res) => {
 
 // send back a 404 error for any unknown api request
 app.use((req, res, next) => {
-  next(new ApiError(httpStatus.NOT_FOUND, "Not found"));
+  next(new ApiError(httpStatus.NOT_FOUND, "API Not found"));
 });
 
 // convert error to ApiError, if needed

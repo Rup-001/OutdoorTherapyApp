@@ -1,4 +1,5 @@
 const httpStatus = require('http-status');
+const prisma = require('../../config/prisma');
 const userService = require('../user/user.service');
 const tokenService = require('./token.service');
 const ApiError = require('../../utils/ApiError');
@@ -8,6 +9,9 @@ const loginUserWithEmailAndPassword = async (email, password) => {
   const user = await userService.getUserByEmail(email);
   if (!user || user.isDeleted || !(await bcrypt.compare(password, user.password))) {
     throw new ApiError(httpStatus.UNAUTHORIZED, 'Incorrect email or password');
+  }
+  if (user.isBanned) {
+    throw new ApiError(httpStatus.FORBIDDEN, 'Your account is banned. Please contact support.');
   }
   return user;
 };
@@ -26,7 +30,7 @@ const refreshAuth = async (refreshToken) => {
   try {
     const refreshTokenDoc = await tokenService.verifyToken(refreshToken, 'REFRESH');
     const user = await userService.getUserById(refreshTokenDoc.userId);
-    if (!user) throw new Error();
+    if (!user || user.isBanned) throw new Error();
     await prisma.token.delete({ where: { id: refreshTokenDoc.id } });
     return tokenService.generateAuthTokens(user);
   } catch (error) {
