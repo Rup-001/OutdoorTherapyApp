@@ -21,20 +21,25 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           script: |
-            # Project folder-e jao
-            mkdir -p ~/outdoor-therapy/backend
-            cd ~/outdoor-therapy/backend || exit
+            # Project main folder-e jao
+            mkdir -p ~/outdoor-therapy
+            cd ~/outdoor-therapy || exit
 
-            # Latest code pull kora
-            if [ -d ".git" ]; then
-              git fetch --all
-              git reset --hard origin/main
-            else
-              git clone https://github.com/${{ github.repository }}.git .
+            # Git initialization if not exists
+            if [ ! -d ".git" ]; then
+              git init
+              git remote add origin https://github.com/${{ github.repository }}.git
             fi
 
+            # Fetch and reset code (Safe for non-empty folders)
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Enter Backend folder where docker-compose lives
+            cd Bankend || exit
+
             # Docker containers rebuild ebong restart
-            # Note: Production .env file must be manually created in this folder
+            # Ensure .env is present in this Bankend folder
             docker compose down
             docker compose up -d --build
 
