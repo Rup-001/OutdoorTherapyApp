@@ -36,10 +36,10 @@ jobs:
             git reset --hard origin/main
 
             # Enter Backend folder where docker-compose lives
-            cd Bankend || exit
+            cd Backend || exit
 
             # Docker containers rebuild ebong restart
-            # Ensure .env is present in this Bankend folder
+            # Ensure .env is present in this Backend folder
             docker compose down
             docker compose up -d --build
 
