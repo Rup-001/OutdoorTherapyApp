@@ -4,22 +4,23 @@ const logger = require('../config/logger');
 /**
  * Redis Cache Middleware
  * 
- * Logic: 
- * 1. Request ashle check kore ei URL-er kono data Redis-e ase kina.
- * 2. Thkle seta instant return kore (Cache Hit).
- * 3. Na thakle DB theke data anar por seta Redis-e save kore (Cache Set) jate next time fast hoy.
- * 
- * @param {number} duration - Cache koto khon thakbe (seconds-e)
+ * @param {number} duration - Cache duration in seconds
+ * @param {boolean} isPersonalized - Whether to include userId in key (default true)
  */
-const cache = (duration) => {
+const cache = (duration, isPersonalized = true) => {
   return async (req, res, next) => {
     // Shudhu GET request cache korbo (POST/PATCH/DELETE cache kora jay na)
     if (req.method !== 'GET') {
       return next();
     }
 
-    // URL ke Key hisebe use korchi (e.g., cache:/api/v1/app/categories)
-    const key = `cache:${req.originalUrl || req.url}`;
+    // Key creation: URL
+    let key = `cache:${req.originalUrl || req.url}`;
+    
+    // Logic: Personalized route hole User ID add korbo key-te
+    if (isPersonalized && req.user && req.user.id) {
+      key = `${key}:user:${req.user.id}`;
+    }
 
     try {
       // Step 1: Redis theke data khujo

@@ -30,7 +30,7 @@ adminRouter
 
 adminRouter
   .route('/:trackId')
-  .get(auth('commonAdmin'), validate(trackValidation.getTrack), trackController.getTrack)
+  .get(auth('commonAdmin'), trackController.incrementPlayCount, validate(trackValidation.getTrack), trackController.getTrack)
   .patch(
     auth('commonAdmin'), 
     trackUpload.fields([
@@ -45,15 +45,16 @@ adminRouter
 // --- User Routes (/api/v1/app/tracks) ---
 userRouter
   .route('/popular')
-  .get(cache(3600), trackController.getPopularTracks);
+  .get(auth(), cache(10, false), trackController.getPopularTracks);
 
 userRouter
   .route('/')
-  .get(validate(trackValidation.getTracks), trackController.getTracks);
+  .get(auth(), cache(10), validate(trackValidation.getTracks), trackController.getTracks);
 
 userRouter
   .route('/:trackId')
-  .get(validate(trackValidation.getTrack), trackController.getTrack);
+  .get(auth(), trackController.incrementPlayCount, cache(10), validate(trackValidation.getTrack), trackController.getTrack);
+
 
 module.exports = {
   adminRouter,

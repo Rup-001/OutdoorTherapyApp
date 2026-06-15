@@ -4,11 +4,13 @@ const validate = require('../../middlewares/validate');
 const downloadValidation = require('./download.validation');
 const downloadController = require('./download.controller');
 
+const { cache } = require('../../middlewares/cache');
+
 const router = express.Router();
 
 router
   .route('/')
-  .get(auth(), downloadController.getMyDownloads);
+  .get(auth(), cache(10), downloadController.getMyDownloads);
 
 router
   .route('/:trackId')

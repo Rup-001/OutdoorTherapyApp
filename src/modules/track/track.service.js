@@ -141,14 +141,9 @@ const getTrackById = async (id, userId) => {
     throw new ApiError(httpStatus.NOT_FOUND, 'Track not found');
   }
 
-  // Update playCount incrementing it by 1 only if track exists
-  await prisma.track.update({
-    where: { id },
-    data: { playCount: { increment: 1 } },
-  });
-
   // Generate signed URLs
   const audioUrl = await getSignedFileUrl(track.audioUrl);
+
   const coverImageUrl = await getSignedFileUrl(track.coverImageUrl);
 
   // Flatten playHistory for easier frontend access
@@ -262,6 +257,18 @@ const getPopularTracks = async () => {
   })));
 };
 
+/**
+ * Increment playCount of a track
+ * @param {string} trackId
+ * @returns {Promise<Track>}
+ */
+const incrementPlayCount = async (trackId) => {
+  return prisma.track.update({
+    where: { id: trackId },
+    data: { playCount: { increment: 1 } },
+  });
+};
+
 module.exports = {
   createTrack,
   queryTracks,
@@ -269,4 +276,5 @@ module.exports = {
   getPopularTracks,
   updateTrackById,
   deleteTrackById,
+  incrementPlayCount,
 };

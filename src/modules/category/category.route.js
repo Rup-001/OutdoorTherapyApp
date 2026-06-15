@@ -42,11 +42,11 @@ adminRouter
 // --- User Routes (/api/v1/app/categories) ---
 userRouter
   .route('/')
-  .get(cache(3600), validate(categoryValidation.getCategories), categoryController.getCategories);
+  .get(cache(10, false), validate(categoryValidation.getCategories), categoryController.getCategories);
 
 userRouter
   .route('/:categoryId')
-  .get(cache(3600), validate(categoryValidation.getCategory), categoryController.getCategory);
+  .get(cache(10, false), validate(categoryValidation.getCategory), categoryController.getCategory);
 
 module.exports = {
   adminRouter,

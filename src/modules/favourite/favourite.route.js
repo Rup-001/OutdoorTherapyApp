@@ -4,11 +4,13 @@ const validate = require('../../middlewares/validate');
 const favouriteValidation = require('./favourite.validation');
 const favouriteController = require('./favourite.controller');
 
+const { cache } = require('../../middlewares/cache');
+
 const router = express.Router();
 
 router
   .route('/')
-  .get(auth(), validate(favouriteValidation.getFavourites), favouriteController.getFavourites);
+  .get(auth(), cache(10), validate(favouriteValidation.getFavourites), favouriteController.getFavourites);
 
 router
   .route('/:trackId')

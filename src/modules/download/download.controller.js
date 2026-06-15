@@ -2,6 +2,7 @@ const httpStatus = require('http-status');
 const catchAsync = require('../../utils/catchAsync');
 const downloadService = require('./download.service');
 const response = require('../../config/response');
+const { clearCache } = require('../../middlewares/cache');
 
 const startDownload = catchAsync(async (req, res) => {
   const result = await downloadService.startDownload(req.user.id, req.params.trackId);
@@ -17,6 +18,13 @@ const startDownload = catchAsync(async (req, res) => {
 
 const updateStatus = catchAsync(async (req, res) => {
   const result = await downloadService.updateDownloadStatus(req.params.downloadId, req.user.id, req.body);
+
+  // Logic: Download complete hole user-er track list update kora dorkar (isDownloaded status)
+  if (req.body.status === 'COMPLETED') {
+    await clearCache(`*cache:/api/v1/app/tracks*user:${req.user.id}*`);
+    await clearCache(`*cache:/api/v1/app/downloads*user:${req.user.id}*`);
+  }
+
   res.status(httpStatus.OK).json(
     response({
       message: 'Download status updated',

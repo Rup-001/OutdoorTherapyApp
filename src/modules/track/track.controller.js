@@ -124,6 +124,17 @@ const getPopularTracks = catchAsync(async (req, res) => {
   );
 });
 
+const incrementPlayCount = catchAsync(async (req, res, next) => {
+  try {
+    const trackId = req.params.trackId;
+    console.log(`[Debug] Incrementing PlayCount for Track: ${trackId}`);
+    await trackService.incrementPlayCount(trackId);
+  } catch (err) {
+    console.error('PlayCount Increment Error:', err.message);
+  }
+  next();
+});
+
 module.exports = {
   createTrack,
   getTracks,
@@ -131,4 +142,5 @@ module.exports = {
   getPopularTracks,
   updateTrack,
   deleteTrack,
+  incrementPlayCount,
 };

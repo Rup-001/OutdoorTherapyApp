@@ -32,7 +32,6 @@ const updatePlayHistory = async (userId, trackId, playedSeconds) => {
       where: { id: existingHistory.id },
       data: {
         playedSeconds,
-        playedAt: new Date(),
       },
     });
   }
@@ -55,7 +54,7 @@ const getContinueListening = async (userId) => {
   const history = await prisma.playHistory.findMany({
     where: { userId },
     take: 5,
-    orderBy: { playedAt: 'desc' },
+    orderBy: { updatedAt: 'desc' },
     include: {
       track: {
         include: {
